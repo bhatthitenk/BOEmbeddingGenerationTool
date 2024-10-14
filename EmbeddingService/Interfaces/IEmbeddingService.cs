@@ -8,6 +8,6 @@ namespace BOEmbeddingService.Interfaces
 {
     public interface IEmbeddingService
     {
-        public void GetCompressMethods();
+        public Task GetCompressMethods();
     }
 }
