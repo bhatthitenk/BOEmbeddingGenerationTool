@@ -9,7 +9,7 @@ var serviceprovider = new ServiceCollection()
 
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
 
-embeddingService.GetCompressMethods();
+await embeddingService.GetCompressMethods();
 
 // See https://aka.ms/new-console-template for more information
 Console.WriteLine("Hello, World!");

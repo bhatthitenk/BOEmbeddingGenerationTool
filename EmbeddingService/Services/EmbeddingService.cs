@@ -31,7 +31,7 @@ namespace BOEmbeddingService.Services
         const string openAiEmbeddingModelName = "text-embedding-3-small";
         //AzureKeyCredential openAiKey = new("");
         ApiKeyCredential openAiKey = new ApiKeyCredential("92bf567ccd344dccb7c35d0bb1567dd6");
-        string targetDir = Path.GetDirectoryName("D:\\Epicor\\kinetic-source-ai-analysis");
+        string targetDir = Path.GetDirectoryName(@"D:\Epicor\CrawledFiles\new");
 
         
         AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
@@ -84,12 +84,14 @@ namespace BOEmbeddingService.Services
 
                 //items.DumpTell();
 
-                var items = await GetFiles(@"D:\Epicor\BO\BOObjects");
+                var items = await GetFiles(@"D:\Epicor\BOObjects");
 
                 // skip root folder
                 foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
                 {
-                    var boName = Path.GetFileName(boRoot/*boRoot.Path*/);
+                    var paths = boRoot.Split(@"\");
+
+                    var boName = paths[3];//Path.GetFileName(boRoot/*boRoot.Path*/);
                     var serviceName = $"ERP.BO.{boName}Svc";
                     var destinationFile = Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName, serviceName + ".json");
                     Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
@@ -104,7 +106,7 @@ namespace BOEmbeddingService.Services
 
                     // main service logic overrides
                     var mainCodeFile = boRoot; /*boFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x.Path) == boName && !x.IsFolder);*/
-                    var compressedCodeFile = Path.Combine(codeFileTargetDir, mainCodeFile./*Path.*/TrimStart('/', '\\'));
+                    var compressedCodeFile = Path.Combine(codeFileTargetDir, boName, paths[4]./*Path.*/TrimStart('/', '\\'));
                     Directory.CreateDirectory(Path.GetDirectoryName(compressedCodeFile));
 
                     // main code compression
@@ -114,13 +116,20 @@ namespace BOEmbeddingService.Services
                     }
                     else
                     {
-                        var mainFileContentStream = await File.ReadAllTextAsync(mainCodeFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", mainCodeFile.Path, (string)null)*/
-                        StreamReader mainFileReader = new(mainFileContentStream);
-                        var mainContent = await mainFileReader.ReadToEndAsync();
-                        var compressed = await CompressCodeFileAsync(mainContent, boName, 1, model);
-                        //compressed.DumpTell();
-                        await File.WriteAllTextAsync(compressedCodeFile, compressed);
-                        aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
+                        try
+                        {
+                            //var mainFileContentStream = File.ReadAllText(mainCodeFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", mainCodeFile.Path, (string)null)*/
+                            StreamReader mainFileReader = new(mainCodeFile);
+                            var mainContent = await mainFileReader.ReadToEndAsync();
+                            var compressed = await CompressCodeFileAsync(mainContent, boName, 1, model);
+                            //compressed.DumpTell();
+                            await File.WriteAllTextAsync(compressedCodeFile, compressed);
+                            aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
+                        }
+                        catch (Exception ex) 
+                        {
+                            Console.WriteLine(ex.ToString());
+                        }
                     }
 
                     // contract
@@ -645,8 +654,11 @@ namespace BOEmbeddingService.Services
                 }
                 foreach (string d in Directory.GetDirectories(path))
                 {
-                    Console.WriteLine(Path.GetFileName(d));
-                    GetFiles(d);
+                    if (!d.Contains("bin") && !d.Contains("obj"))
+                    {
+                        Console.WriteLine(Path.GetFileName(d));
+                        GetFiles(d);
+                    }
                 }
             }
             catch (System.Exception ex)
