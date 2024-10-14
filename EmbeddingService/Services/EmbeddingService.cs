@@ -17,17 +17,21 @@ using System.ClientModel;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
 using System.Globalization;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Client;
 
 namespace BOEmbeddingService.Services
 {
     public class EmbeddingService : IEmbeddingService
     {
+        List<string> files = new List<string>();
         Uri gitRepo = new Uri("https://epicor-corp.visualstudio.com/DefaultCollection/");
-        const string openAiEndpoint = @"https://epicor-labs-api.azure-api.net";
+        const string openAiEndpoint = @"https://hb-dev-openai.openai.azure.com";
         const string openAiEmbeddingModelName = "text-embedding-3-small";
         //AzureKeyCredential openAiKey = new("");
-        ApiKeyCredential openAiKey = new ApiKeyCredential("");
-        string targetDir = Path.GetDirectoryName(@"D:\Epicor\BO\BOObjects");
+        ApiKeyCredential openAiKey = new ApiKeyCredential("92bf567ccd344dccb7c35d0bb1567dd6");
+        string targetDir = Path.GetDirectoryName("D:\\Epicor\\kinetic-source-ai-analysis");
 
         
         AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
@@ -37,149 +41,160 @@ namespace BOEmbeddingService.Services
 
         public async Task GetCompressMethods()
         {
-            /********** CHANGE THIS TO SWAP MODELS! ********/
-            var model = gpt_4o_mini;
-            /***********************************************/
-
-            //totalCostDumper.Dump("Total Cost");
-
-            Directory.CreateDirectory(targetDir);
-            var codeFileTargetDir = Path.Combine(targetDir, "CompressedCodeFiles");
-            Directory.CreateDirectory(codeFileTargetDir);
-
-            var contractDefinitionTargetDir = Path.Combine(targetDir, "ContractSummaries");
-            Directory.CreateDirectory(contractDefinitionTargetDir);
-
-            // Commented Code
-            //var token = await Util.MSAL.AcquireTokenAsync("https://login.microsoftonline.com/common", "499b84ac-1321-427f-aa17-267ca6975798/.default");
-            //token.DumpTell();
-
-            // Commented Code
-            //VssConnection connection = new(gitRepo, new VssAadCredential(new VssAadToken("Bearer", token.AccessToken)));
-            //connection.Dump();
-            //await connection.ConnectAsync();
-
-            // for project collection change url to end with /tfs only and not the collection
-            //ProjectCollectionHttpClient projectCollectionClient = connection.GetClient<ProjectCollectionHttpClient>();
-
-            //IEnumerable<TeamProjectCollectionReference> projectCollections = projectCollectionClient.GetProjectCollections().Result;
-
-            //projectCollections.Dump();
-
-            //ProjectHttpClient projectClient = connection.GetClient<ProjectHttpClient>();
-
-            //projectClient.GetProjects().Result.Dump();
-            //var gitClient = connection.GetClient<GitHttpClient>();
-            //gitClient.DumpTell();
-            //var repository = await gitClient.GetRepositoryAsync("Epicor-PD", "current-kinetic");
-            //repository.DumpTell();
-
-            var items = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", "/Source/Server/Services/BO", recursionLevel: VersionControlRecursionType.OneLevel);
-
-            //items.DumpTell();
-
-            // skip root folder
-            foreach (var boRoot in items.Skip(1)) //.Where(x => x.Path.EndsWith("APInvoice")))
+            try
             {
-                var boName = Path.GetFileName(boRoot.Path);
-                var serviceName = $"ERP.BO.{boName}Svc";
-                var destinationFile = Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName, serviceName + ".json");
-                Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
+                /********** CHANGE THIS TO SWAP MODELS! ********/
+                var model = gpt_4o_mini;
+                /***********************************************/
 
-                if (Path.Exists(destinationFile))
-                    // skip if file already exists
-                    continue;
+                //totalCostDumper.Dump("Total Cost");
 
-                var aiContextFiles = new List<CodeFile>();
+                Directory.CreateDirectory(targetDir);
+                var codeFileTargetDir = Path.Combine(targetDir, "CompressedCodeFiles");
+                Directory.CreateDirectory(codeFileTargetDir);
 
-                var boFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", boRoot.Path, recursionLevel: VersionControlRecursionType.OneLevel);
+                var contractDefinitionTargetDir = Path.Combine(targetDir, "ContractSummaries");
+                Directory.CreateDirectory(contractDefinitionTargetDir);
 
-                // main service logic overrides
-                var mainCodeFile = boFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x.Path) == boName && !x.IsFolder);
-                var compressedCodeFile = Path.Combine(codeFileTargetDir, mainCodeFile.Path.TrimStart('/', '\\'));
-                Directory.CreateDirectory(Path.GetDirectoryName(compressedCodeFile));
+                // Commented Code
+                //var token = await Util.MSAL.AcquireTokenAsync("https://login.microsoftonline.com/common", "499b84ac-1321-427f-aa17-267ca6975798/.default");
+                //token.DumpTell();
 
-                // main code compression
-                if (File.Exists(compressedCodeFile))
+                // Commented Code
+                //VssConnection connection = new(gitRepo, new VssAadCredential(new VssAadToken("Bearer", token.AccessToken)));
+                //connection.Dump();
+                //await connection.ConnectAsync();
+
+                // for project collection change url to end with /tfs only and not the collection
+                //ProjectCollectionHttpClient projectCollectionClient = connection.GetClient<ProjectCollectionHttpClient>();
+
+                //IEnumerable<TeamProjectCollectionReference> projectCollections = projectCollectionClient.GetProjectCollections().Result;
+
+                //projectCollections.Dump();
+
+                //ProjectHttpClient projectClient = connection.GetClient<ProjectHttpClient>();
+
+                //projectClient.GetProjects().Result.Dump();
+                //var gitClient = connection.GetClient<GitHttpClient>();
+                //gitClient.DumpTell();
+                //var repository = await gitClient.GetRepositoryAsync("Epicor-PD", "current-kinetic");
+                //repository.DumpTell();
+
+                //var items = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", "/Source/Server/Services/BO", recursionLevel: VersionControlRecursionType.OneLevel);
+
+                //items.DumpTell();
+
+                var items = await GetFiles(@"D:\Epicor\BO\BOObjects");
+
+                // skip root folder
+                foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
                 {
-                    aiContextFiles.Add(new CodeFile { Content = await File.ReadAllTextAsync(compressedCodeFile), Filename = Path.GetFileName(mainCodeFile.Path) });
+                    var boName = Path.GetFileName(boRoot/*boRoot.Path*/);
+                    var serviceName = $"ERP.BO.{boName}Svc";
+                    var destinationFile = Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName, serviceName + ".json");
+                    Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
+
+                    if (Path.Exists(destinationFile))
+                        // skip if file already exists
+                        continue;
+
+                    var aiContextFiles = new List<CodeFile>();
+
+                    //var boFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", boRoot.Path, recursionLevel: VersionControlRecursionType.OneLevel);
+
+                    // main service logic overrides
+                    var mainCodeFile = boRoot; /*boFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x.Path) == boName && !x.IsFolder);*/
+                    var compressedCodeFile = Path.Combine(codeFileTargetDir, mainCodeFile./*Path.*/TrimStart('/', '\\'));
+                    Directory.CreateDirectory(Path.GetDirectoryName(compressedCodeFile));
+
+                    // main code compression
+                    if (File.Exists(compressedCodeFile))
+                    {
+                        aiContextFiles.Add(new CodeFile { Content = await File.ReadAllTextAsync(compressedCodeFile), Filename = Path.GetFileName(mainCodeFile/*.Path*/) });
+                    }
+                    else
+                    {
+                        var mainFileContentStream = await File.ReadAllTextAsync(mainCodeFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", mainCodeFile.Path, (string)null)*/
+                        StreamReader mainFileReader = new(mainFileContentStream);
+                        var mainContent = await mainFileReader.ReadToEndAsync();
+                        var compressed = await CompressCodeFileAsync(mainContent, boName, 1, model);
+                        //compressed.DumpTell();
+                        await File.WriteAllTextAsync(compressedCodeFile, compressed);
+                        aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
+                    }
+
+                    // contract
+                    //var contractFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", $"/Source/Shared/Contracts/BO/{boName}", recursionLevel: VersionControlRecursionType.OneLevel);
+
+                    var contractFiles = await GetFiles(@"D:\Epicor\BO\BOContracts");
+
+                    var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == boName + "Contract"/* && !x.IsFolder*/);
+                    var contractContentStream = await File.ReadAllTextAsync(contractInterfaceFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", contractInterfaceFile.Path, (string)null);*/
+                    StreamReader reader = new(contractContentStream);
+                    var content = await reader.ReadToEndAsync();
+
+                    /*
+                    // we place this file at position 0 to ensure it is the last one removed
+                    aiContextFiles.Insert(0, new CodeFile { Content = content, Filename = Path.GetFileName(contractInterfaceFile.Path) });
+                    await contentStream.DisposeAsync();
+                    */
+
+
+                    // Generate contract summary
+                    var contractSummaryFile = Path.ChangeExtension(Path.Combine(contractDefinitionTargetDir, contractInterfaceFile.TrimStart('/', '\\')), ".contract.json");
+                    Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
+                    Dictionary<string, string> contractSummary = new();
+                    if (File.Exists(contractSummaryFile))
+                    {
+                        contractSummary = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(contractSummaryFile));
+                    }
+                    else
+                    {
+                        contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, model);
+                        await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
+                    }
+
+                    // generate description with openAI
+
+
+                    var description = await GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, model);
+                    if (description == null)
+                    {
+                        // BO failed to process :(
+                        //"Failed to process".Dump(boName);
+                        await File.WriteAllTextAsync(destinationFile + ".bad", "");
+                        continue;
+                    }
+
+                    //description.DumpTell();
+
+                    await File.WriteAllTextAsync(destinationFile, System.Text.Json.JsonSerializer.Serialize(description, options: new JsonSerializerOptions { WriteIndented = true }));
+
+                    //break; // stop iterating during testing
                 }
-                else
+
+
+                // generate questions
+                foreach (var descriptionFile in Directory.GetFiles(Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName), "*.json"))
                 {
-                    using var mainFileContentStream = await gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", mainCodeFile.Path, (string)null);
-                    StreamReader mainFileReader = new(mainFileContentStream);
-                    var mainContent = await mainFileReader.ReadToEndAsync();
-                    var compressed = await CompressCodeFileAsync(mainContent, boName, 1, model);
-                    compressed.DumpTell();
-                    await File.WriteAllTextAsync(compressedCodeFile, compressed);
-                    aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile.Path) });
+                    var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
+
+                    var questionFile = Path.Combine(targetDir, "Questions", filenameWithoutExtension + ".questions.json");
+                    Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
+                    if (File.Exists(questionFile))
+                        continue;
+
+                    var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
+                    var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
+
+
+                    var questions = await GenerateQuestions(description, model, filenameWithoutExtension);
+                    await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
                 }
-
-                // contract
-                var contractFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", $"/Source/Shared/Contracts/BO/{boName}", recursionLevel: VersionControlRecursionType.OneLevel);
-
-                var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x.Path) == boName + "Contract" && !x.IsFolder);
-                using var contractContentStream = await gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", contractInterfaceFile.Path, (string)null);
-                StreamReader reader = new(contractContentStream);
-                var content = await reader.ReadToEndAsync();
-
-                /*
-                // we place this file at position 0 to ensure it is the last one removed
-                aiContextFiles.Insert(0, new CodeFile { Content = content, Filename = Path.GetFileName(contractInterfaceFile.Path) });
-                await contentStream.DisposeAsync();
-                */
-
-
-                // Generate contract summary
-                var contractSummaryFile = Path.ChangeExtension(Path.Combine(contractDefinitionTargetDir, contractInterfaceFile.Path.TrimStart('/', '\\')), ".contract.json");
-                Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
-                Dictionary<string, string> contractSummary = new();
-                if (File.Exists(contractSummaryFile))
-                {
-                    contractSummary = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(contractSummaryFile));
-                }
-                else
-                {
-                    contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, model);
-                    await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
-                }
-
-                // generate description with openAI
-
-
-                var description = await GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, model);
-                if (description == null)
-                {
-                    // BO failed to process :(
-                    //"Failed to process".Dump(boName);
-                    await File.WriteAllTextAsync(destinationFile + ".bad", "");
-                    continue;
-                }
-
-                //description.DumpTell();
-
-                await File.WriteAllTextAsync(destinationFile, System.Text.Json.JsonSerializer.Serialize(description, options: new JsonSerializerOptions { WriteIndented = true }));
-
-                //break; // stop iterating during testing
             }
-
-
-            // generate questions
-            foreach (var descriptionFile in Directory.GetFiles(Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName), "*.json"))
+            catch(Exception ex)
             {
-                var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
-
-                var questionFile = Path.Combine(targetDir, "Questions", filenameWithoutExtension + ".questions.json");
-                Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
-                if (File.Exists(questionFile))
-                    continue;
-
-                var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
-                var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
-
-
-                var questions = await GenerateQuestions(description, model, filenameWithoutExtension);
-                await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine(ex.ToString());
             }
         }
 
@@ -587,6 +602,59 @@ namespace BOEmbeddingService.Services
             totalCost += cost;
             //totalCostDumper.ClearContent();
             //totalCostDumper.AppendContent(((FormattableString)$"AI Total Running Cost = {totalCost:C}").ToString(CultureInfo.CreateSpecificCulture("en-US")));
+        }
+
+        async Task<string[]> GetFiles(string path)
+        {
+            //Queue<string> queue = new Queue<string>();
+            //queue.Enqueue(path);
+
+            //List<string> files = new List<string>();
+            //while (queue.Count > 0)
+            //{
+            //    path = queue.Dequeue();
+            //    try
+            //    {
+            //        foreach (string subDir in Directory.GetDirectories(path))
+            //        {
+            //            if(!path.Contains("bin") && !path.Contains("obj"))
+            //                queue.Enqueue(subDir);
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Console.Error.WriteLine(ex);
+            //    }
+                
+            //    try
+            //    {
+            //        files.AddRange(Directory.GetFiles(path).ToList());
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Console.Error.WriteLine(ex);
+            //    }
+            //}
+
+
+            try
+            {
+                foreach (string f in Directory.GetFiles(path))
+                {
+                    files.Add(f);
+                }
+                foreach (string d in Directory.GetDirectories(path))
+                {
+                    Console.WriteLine(Path.GetFileName(d));
+                    GetFiles(d);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
+            return files.ToArray();
         }
     }
 }
