@@ -44,7 +44,8 @@ namespace BOEmbeddingService.Services
             try
             {
                 /********** CHANGE THIS TO SWAP MODELS! ********/
-                var model = gpt_4o_mini;
+                //var model = gpt_4o_mini;
+                var model = gpt_4o;
                 /***********************************************/
 
                 //totalCostDumper.Dump("Total Cost");
@@ -134,12 +135,16 @@ namespace BOEmbeddingService.Services
 
                     // contract
                     //var contractFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", $"/Source/Shared/Contracts/BO/{boName}", recursionLevel: VersionControlRecursionType.OneLevel);
-
-                    var contractFiles = await GetFiles(@"D:\Epicor\BO\BOContracts");
+                    files = new List<string>();
+                    var contractFiles = await GetFiles(@"D:\Epicor\BOContracts");
 
                     var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == boName + "Contract"/* && !x.IsFolder*/);
-                    var contractContentStream = await File.ReadAllTextAsync(contractInterfaceFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", contractInterfaceFile.Path, (string)null);*/
-                    StreamReader reader = new(contractContentStream);
+                    if(contractInterfaceFile == null)
+                    {
+                        continue;
+                    }
+                    //var contractContentStream = await File.ReadAllTextAsync(contractInterfaceFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", contractInterfaceFile.Path, (string)null);*/
+                    StreamReader reader = new(contractInterfaceFile);
                     var content = await reader.ReadToEndAsync();
 
                     /*
@@ -347,9 +352,12 @@ namespace BOEmbeddingService.Services
                         })
                 };
 
-                var completion = await openAiClient.GetChatClient(model.DeploymentName).CompleteChatAsync(new ChatMessage[] {
+                var aiClient = openAiClient.GetChatClient(model.DeploymentName);
+                var completion = await aiClient.CompleteChatAsync(new ChatMessage[] {
             ChatMessage.CreateSystemMessage(systemPrompt),
+            //ChatMessage.CreateSystemMessage("Json. Am I able to connect My AI services"),
             ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
+            //ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize("Json. Give me some random data.")),
         },
                 new ChatCompletionOptions
                 {
