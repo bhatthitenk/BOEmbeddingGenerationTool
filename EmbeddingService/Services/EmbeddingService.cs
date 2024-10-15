@@ -21,6 +21,7 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Client;
 using Serilog;
+using System.IO;
 
 namespace BOEmbeddingService.Services
 {
@@ -92,9 +93,9 @@ namespace BOEmbeddingService.Services
                 // skip root folder
                 foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
                 {
-                    var paths = boRoot.Split(@"\");
+                    FileInfo fi = new FileInfo(boRoot);
 
-                    var boName = paths[3];//Path.GetFileName(boRoot/*boRoot.Path*/);
+                    var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
                     var serviceName = $"ERP.BO.{boName}Svc";
                     var destinationFile = Path.Combine(targetDir, "BusinessObjectDescription", model.DeploymentName, serviceName + ".json");
                     Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
@@ -109,7 +110,7 @@ namespace BOEmbeddingService.Services
 
                     // main service logic overrides
                     var mainCodeFile = boRoot; /*boFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x.Path) == boName && !x.IsFolder);*/
-                    var compressedCodeFile = Path.Combine(codeFileTargetDir, boName, paths[4]./*Path.*/TrimStart('/', '\\'));
+                    var compressedCodeFile = Path.Combine(codeFileTargetDir, boName, fi.Name./*Path.*/TrimStart('/', '\\'));
                     Directory.CreateDirectory(Path.GetDirectoryName(compressedCodeFile));
 
                     // main code compression
