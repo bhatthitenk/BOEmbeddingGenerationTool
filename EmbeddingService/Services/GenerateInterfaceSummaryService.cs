@@ -1,31 +1,32 @@
 ﻿using Azure.AI.OpenAI;
 using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis;
-using OpenAI.Chat;
-using OpenAI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-using System.ClientModel;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
+using OpenAI;
+using OpenAI.Chat;
+using System.ClientModel;
+using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-	public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
+    public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
 
-		const string openAiEndpoint = @"https://hb-dev-openai.openai.azure.com";
-		//const string openAiEmbeddingModelName = "text-embedding-3-small";
-		//AzureKeyCredential openAiKey = new("");
-		ApiKeyCredential openAiKey = new ApiKeyCredential("92bf567ccd344dccb7c35d0bb1567dd6");
+        static appSettings _appSettings = Configuration.BuildAppSettings();
 
-		private readonly ICommonService _commonService;
+        Serilog.Core.Logger _logger = LoggerService.GetInstance();
+        List<string> files = new List<string>();
+        Uri gitRepo = new Uri(_appSettings.gitRepo);
+        string openAiEndpoint = _appSettings.openAiEndpoint;
+        string openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
+        ApiKeyCredential openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+        string targetDir = Path.GetDirectoryName(_appSettings.targetDir);
+
+
+        private readonly ICommonService _commonService;
 
 		public GenerateInterfaceSummaryService(ICommonService commonService)
 		{
@@ -38,7 +39,7 @@ namespace BOEmbeddingService.Services
 		You are C# code interpreter for Epicor Kinetic ERP system. When user supplies you with interface file and summary of method implementations,
 		you analyse these and return information about what each individual interface method does.
 		
-		{{_commonService.GetKineticBusinessObjectImplementationDetails()}}
+		{{Constants.KineticBusinessObjectImplementationDetails}}
 		
 		User will supply you will JSON template for response. Fill in the blank summary fields and return full JSON with method summaries.
 		Your response should contain the following fields:

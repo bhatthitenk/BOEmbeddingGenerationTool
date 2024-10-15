@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Services;
+using Microsoft.Extensions.Configuration;
+using BOEmbeddingService;
 
 var serviceprovider = new ServiceCollection()
     // Add Service
@@ -8,11 +10,13 @@ var serviceprovider = new ServiceCollection()
     .AddScoped<ICommonService, CommonService>()
     .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
     .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
+    .AddSingleton<appSettings>()
 	.BuildServiceProvider();
 
+var appSettings = Configuration.BuildAppSettings();
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
 
-await embeddingService.GetCompressMethods();
+await embeddingService.EmbeddedBOObjects();
 
 // See https://aka.ms/new-console-template for more information
 Console.WriteLine("Hello, World!");

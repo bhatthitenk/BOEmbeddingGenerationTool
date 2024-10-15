@@ -1,29 +1,23 @@
 ﻿using Azure.AI.OpenAI;
 using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using OpenAI.Chat;
 using OpenAI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+using OpenAI.Chat;
 using System.ClientModel;
+using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-	public class GenerateQuestionsService : IGenerateQuestionsService
+    public class GenerateQuestionsService : IGenerateQuestionsService
 	{
-		const string openAiEndpoint = @"https://hb-dev-openai.openai.azure.com";
-		ApiKeyCredential openAiKey = new ApiKeyCredential("92bf567ccd344dccb7c35d0bb1567dd6");
-		const string openAiEmbeddingModelName = "text-embedding-3-small";
+        static appSettings _appSettings = Configuration.BuildAppSettings();
+        string openAiEndpoint = _appSettings.openAiEndpoint;
+        string openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
+        ApiKeyCredential openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
 
-		private readonly ICommonService _commonService;
 
-		public GenerateQuestionsService(ICommonService commonService)
+		public GenerateQuestionsService()
 		{
-			_commonService = commonService;
 		}
 
 		/// <summary>

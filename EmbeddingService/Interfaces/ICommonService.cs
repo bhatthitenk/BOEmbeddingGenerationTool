@@ -10,7 +10,5 @@ namespace BOEmbeddingService.Interfaces
 	public interface ICommonService
 	{
 		Task<string[]> GetFiles(string path);
-
-		Task<string> GetKineticBusinessObjectImplementationDetails();
 	}
 }
