@@ -39,10 +39,20 @@ namespace BOEmbeddingService.Services
         AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
         AIModelDefinition gpt_4o = new("gpt-4o", 0.00275m / 1000, 0.011m / 1000);
 
-        public EmbeddingService() { 
-        }
+		private readonly ICommonService _commonService;
+		private readonly IGenerateInterfaceSummaryService _generateInterfaceSummaryService;
+		private readonly IGenerateQuestionsService _generateQuestionsService;
 
-        public async Task GetCompressMethods()
+		public EmbeddingService(ICommonService commonService, 
+            IGenerateInterfaceSummaryService generateInterfaceSummaryService, 
+            IGenerateQuestionsService generateQuestionsService)
+		{
+			_commonService = commonService;
+			_generateInterfaceSummaryService = generateInterfaceSummaryService;
+			_generateQuestionsService = generateQuestionsService;
+		}
+
+		public async Task GetCompressMethods()
         {
             try
             {
@@ -86,8 +96,8 @@ namespace BOEmbeddingService.Services
 
                 //items.DumpTell();
 
-                var items = await GetFiles(@"D:\Epicor\BOObjects");
-                var contractFiles = await GetFiles(@"D:\Epicor\BOContracts");
+                var items = await _commonService.GetFiles(@"D:\Epicor\BOObjects");
+                var contractFiles = await _commonService.GetFiles(@"D:\Epicor\BOContracts");
 
                 // skip root folder
                 foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
@@ -129,7 +139,7 @@ namespace BOEmbeddingService.Services
                             await File.WriteAllTextAsync(compressedCodeFile, compressed);
                             aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
                         }
-                        catch (Exception ex) 
+                        catch (Exception ex)
                         {
                             Console.WriteLine(ex.ToString());
                         }
@@ -138,10 +148,10 @@ namespace BOEmbeddingService.Services
                     // contract
                     //var contractFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", $"/Source/Shared/Contracts/BO/{boName}", recursionLevel: VersionControlRecursionType.OneLevel);
                     files = new List<string>();
-                    
+
 
                     var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == boName + "Contract"/* && !x.IsFolder*/);
-                    if(contractInterfaceFile == null)
+                    if (contractInterfaceFile == null)
                     {
                         continue;
                     }
@@ -166,7 +176,7 @@ namespace BOEmbeddingService.Services
                     }
                     else
                     {
-                        contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, model);
+                        contractSummary = await _generateInterfaceSummaryService.GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, model);
                         await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
                     }
 
@@ -204,177 +214,180 @@ namespace BOEmbeddingService.Services
                     var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
 
 
-                    var questions = await GenerateQuestions(description, model, filenameWithoutExtension);
+                    var questions = await _generateQuestionsService.GenerateQuestions(description, model, filenameWithoutExtension);
                     await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
             }
         }
 
 
-        /// <summary>
-        /// Generate questions for RAG
-        /// </summary>
-        private async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
-        {
-            var prompt = """
-		You are an advanced ERP (enteprise resource processing) assistant. When provided with a description of
-		a business object (service) in Epicor Kinetic ERP system, you use this description to generate a set of 20 questions that this service could answer.
+  //      //Commented By Hiren
+  //      /// <summary>
+  //      /// Generate questions for RAG
+  //      /// </summary>
+  //      private async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
+  //      {
+  //          var prompt = """
+		//You are an advanced ERP (enteprise resource processing) assistant. When provided with a description of
+		//a business object (service) in Epicor Kinetic ERP system, you use this description to generate a set of 20 questions that this service could answer.
 		
-		Questions you generate can have example data marked with letter abbreviations, e.g. "Do X". Do not generate questions for modifying data, all the
-		questions you create should be returned as search type questions.
+		//Questions you generate can have example data marked with letter abbreviations, e.g. "Do X". Do not generate questions for modifying data, all the
+		//questions you create should be returned as search type questions.
 		
-		Only use user supplied description to determine questions to answer. Do NOT use any other data. In the generated questions you must not mention technical implementation details, such as asking for dataset.
-		Do not put any fictitious data into the question - instead use letter placeholders only.
+		//Only use user supplied description to determine questions to answer. Do NOT use any other data. In the generated questions you must not mention technical implementation details, such as asking for dataset.
+		//Do not put any fictitious data into the question - instead use letter placeholders only.
 		
-		Format your response as json with field "questions" containing an array of strings, ne per question generated.
-		""";
+		//Format your response as json with field "questions" containing an array of strings, ne per question generated.
+		//""";
 
-            var options = new AzureOpenAIClientOptions();
-            options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
-            options.NetworkTimeout = TimeSpan.FromMinutes(10);
-            OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
+  //          var options = new AzureOpenAIClientOptions();
+  //          options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
+  //          options.NetworkTimeout = TimeSpan.FromMinutes(10);
+  //          OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
 
-            var completion = await openAiClient.GetChatClient(model.DeploymentName).CompleteChatAsync(new ChatMessage[]
-            {
-        ChatMessage.CreateSystemMessage(prompt),
-        ChatMessage.CreateUserMessage(description.Description),
-            }, new ChatCompletionOptions
-            {
-                Temperature = 0.0f,
-                //MaxTokens = 8000,
-                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
-            });
+  //          var completion = await openAiClient.GetChatClient(model.DeploymentName).CompleteChatAsync(new ChatMessage[]
+  //          {
+  //      ChatMessage.CreateSystemMessage(prompt),
+  //      ChatMessage.CreateUserMessage(description.Description),
+  //          }, new ChatCompletionOptions
+  //          {
+  //              Temperature = 0.0f,
+  //              //MaxTokens = 8000,
+  //              ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+  //          });
 
-            var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
+  //          var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
-            var embeddings = await openAiClient.GetEmbeddingClient(openAiEmbeddingModelName).GenerateEmbeddingsAsync(questions);
-            return questions.Zip(embeddings.Value.Select(x => x.Index)).Select(data => (data.First, data.Second.ToString())).ToList();
-        }
+  //          var embeddings = await openAiClient.GetEmbeddingClient(openAiEmbeddingModelName).GenerateEmbeddingsAsync(questions);
+  //          return questions.Zip(embeddings.Value.Select(x => x.Index)).Select(data => (data.First, data.Second.ToString())).ToList();
+  //      }
 
-        /// <summary>
-        /// Helpful guidance for how Kinetic BOs work internally
-        /// </summary>
-        private string GetKineticBusinessObjectImplementationDetails()
-        {
-            return """
-		Implementation of some methods is split into separate stages in addition to base implementation. The base implementation of some key methods is as follows:
-		* GetRows - returns full dataset with parent and child tables based on supplied conditions (known as "where clauses") that are defined in SQL-like syntax
-		* GetList - return reduced single table dataset with small subset of fields for the parent table only. This again takes SQL-like where clause and is used for fast searches
-		* GetByID - return full dataset for parent record specified by its primary key (one or more fields) and all the corresponding child records
-		* GetBySysRowID - return full dataset for parent record specified by the supplied GUID identity key (not primary key!) and all corresponding child records
-		* Update - apply changes in supplied dataset (full dataset from GetByID, GetBySysRowID or GetRows) and write them back to the database. This includes updates, creation and deletion.
+  //      //Commented by Hiren
+  //      /// <summary>
+  //      /// Helpful guidance for how Kinetic BOs work internally
+  //      /// </summary>
+  //      private string GetKineticBusinessObjectImplementationDetails()
+  //      {
+  //          return """
+		//Implementation of some methods is split into separate stages in addition to base implementation. The base implementation of some key methods is as follows:
+		//* GetRows - returns full dataset with parent and child tables based on supplied conditions (known as "where clauses") that are defined in SQL-like syntax
+		//* GetList - return reduced single table dataset with small subset of fields for the parent table only. This again takes SQL-like where clause and is used for fast searches
+		//* GetByID - return full dataset for parent record specified by its primary key (one or more fields) and all the corresponding child records
+		//* GetBySysRowID - return full dataset for parent record specified by the supplied GUID identity key (not primary key!) and all corresponding child records
+		//* Update - apply changes in supplied dataset (full dataset from GetByID, GetBySysRowID or GetRows) and write them back to the database. This includes updates, creation and deletion.
 		
-		Base implementation of these methods can be augmented by implementing corresponding Before and After methods. For exmple, BeforeUpdate method runs before base update method.
-		BeforeGetRows and AfterGetRows methods are special in that they run for any attempt o retrieve full dataset, so for GetRows, GetByID and GetBySysRowID.
+		//Base implementation of these methods can be augmented by implementing corresponding Before and After methods. For exmple, BeforeUpdate method runs before base update method.
+		//BeforeGetRows and AfterGetRows methods are special in that they run for any attempt o retrieve full dataset, so for GetRows, GetByID and GetBySysRowID.
 		
-		Update has special table specific overrides. For exmaple, if we have dataset with tables Parent and Child, implementation of base update functinality can be extended by
-		implementing the following table-specific methods: ParentBeforeUpdate, ParentAfterUpdate, ParentBeforeCreate, ChildAfterDelete, etc. So Update() table specific implemenations have the following:
-		* <Table>BeforeCreate - runs before new record is inserted into <Table> by Update
-		* <Table>AfterCreate - runs after new record is inserted into <Table> by Update
-		* <Table>BeforeUpdate - runs before existing record is updated in <Table> by Update
-		* <Table>AfterUpdate - runs after existing record is updated in <Table> by Update
-		* <Table>BeforeDelete - runs before existing record is deleted in <Table> by Update
-		* <Table>AfterDelete - runs after existing record is updated in <Table> by Update
+		//Update has special table specific overrides. For exmaple, if we have dataset with tables Parent and Child, implementation of base update functinality can be extended by
+		//implementing the following table-specific methods: ParentBeforeUpdate, ParentAfterUpdate, ParentBeforeCreate, ChildAfterDelete, etc. So Update() table specific implemenations have the following:
+		//* <Table>BeforeCreate - runs before new record is inserted into <Table> by Update
+		//* <Table>AfterCreate - runs after new record is inserted into <Table> by Update
+		//* <Table>BeforeUpdate - runs before existing record is updated in <Table> by Update
+		//* <Table>AfterUpdate - runs after existing record is updated in <Table> by Update
+		//* <Table>BeforeDelete - runs before existing record is deleted in <Table> by Update
+		//* <Table>AfterDelete - runs after existing record is updated in <Table> by Update
 		
-		These implementation extensions allow changing and adjusting how a given service implementation functions.
-		Full dataset retrieval methods (GetRows, GetByID, GetBySysRowID) have special functions with postfix "ForeignLink". These are automatically invoked to retrieve the data from associated extra tables.
-		For example, OrderHed record might include foreign link to Customer.Name as CustomerName which automatically looks up customer for the current record and populated value of the CustomerName column with Cutomer.Name. This will go into dataset table field/column which is not physically present in the database.
+		//These implementation extensions allow changing and adjusting how a given service implementation functions.
+		//Full dataset retrieval methods (GetRows, GetByID, GetBySysRowID) have special functions with postfix "ForeignLink". These are automatically invoked to retrieve the data from associated extra tables.
+		//For example, OrderHed record might include foreign link to Customer.Name as CustomerName which automatically looks up customer for the current record and populated value of the CustomerName column with Cutomer.Name. This will go into dataset table field/column which is not physically present in the database.
 		
-		Methods with suffic "GetNew" (e.g. TableGetNew) are used to add a new record to the dataset without committing it to database. They would usually populate defaults.
-		Methods with prefix "OnChange" are used to validate changes in a specific field and often are used to calculate related values in dataset. They do not write these changes to database.
+		//Methods with suffic "GetNew" (e.g. TableGetNew) are used to add a new record to the dataset without committing it to database. They would usually populate defaults.
+		//Methods with prefix "OnChange" are used to validate changes in a specific field and often are used to calculate related values in dataset. They do not write these changes to database.
 		
-		Epicor Kinetic ERP uses the following terminology and abbreviations throughout it table and service names:
-		* PO - purchase order
-		* SO - sales order, often just referred to as order
-		* AP - accounts payable
-		* AR - accounts receivable
-		* GL - general ledger
-		* Tran - transaction
-		* Hed and Head - header record
-		* Dtl, Detail and Line - line record (child of header)
-		* Rel and Release - release (child or line)
-		""";
-        }
+		//Epicor Kinetic ERP uses the following terminology and abbreviations throughout it table and service names:
+		//* PO - purchase order
+		//* SO - sales order, often just referred to as order
+		//* AP - accounts payable
+		//* AR - accounts receivable
+		//* GL - general ledger
+		//* Tran - transaction
+		//* Hed and Head - header record
+		//* Dtl, Detail and Line - line record (child of header)
+		//* Rel and Release - release (child or line)
+		//""";
+  //      }
 
-        /// <summary>
-        /// Create summary of what all individual methods do for use with REST API and final summary generation
-        /// </summary>
-        async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
-        {
-            string systemPrompt = $$"""
-		You are C# code interpreter for Epicor Kinetic ERP system. When user supplies you with interface file and summary of method implementations,
-		you analyse these and return information about what each individual interface method does.
+  //      //Commented by Hiren
+  //      /// <summary>
+  //      /// Create summary of what all individual methods do for use with REST API and final summary generation
+  //      /// </summary>
+  //      async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
+  //      {
+  //          string systemPrompt = $$"""
+		//You are C# code interpreter for Epicor Kinetic ERP system. When user supplies you with interface file and summary of method implementations,
+		//you analyse these and return information about what each individual interface method does.
 		
-		{{GetKineticBusinessObjectImplementationDetails()}}
+		//{{_commonService.GetKineticBusinessObjectImplementationDetails()}}
 		
-		User will supply you will JSON template for response. Fill in the blank summary fields and return full JSON with method summaries.
-		Your response should contain the following fields:
-		* declaration - method declaration as supplied by user and matching interface member declaration
-		* summary - summary of what this method does that you generate
+		//User will supply you will JSON template for response. Fill in the blank summary fields and return full JSON with method summaries.
+		//Your response should contain the following fields:
+		//* declaration - method declaration as supplied by user and matching interface member declaration
+		//* summary - summary of what this method does that you generate
 		
-		When a given interface method has additional implementation methods (like Before/After and table specific Before/After methods as described above, etc), take these into account when describing what a given method does.
-		For example, when describing Update() method that has TableXBeforeCreate that validates that link to TableY in field TableX.FieldA has matchign record, this should be included in summary for Update().
+		//When a given interface method has additional implementation methods (like Before/After and table specific Before/After methods as described above, etc), take these into account when describing what a given method does.
+		//For example, when describing Update() method that has TableXBeforeCreate that validates that link to TableY in field TableX.FieldA has matchign record, this should be included in summary for Update().
 		
-		Only use the following code for formulate your response and do not guess beyond information supplied in these instructions and context:
+		//Only use the following code for formulate your response and do not guess beyond information supplied in these instructions and context:
 		
-		################ Interface File #################
-		{{interfaceFileContents}}
-		############### END Interface File ##############
+		//################ Interface File #################
+		//{{interfaceFileContents}}
+		//############### END Interface File ##############
 		
-		{{string.Join("\r\n", implementationFiles.Select(txt => $"############ {txt.Key} ##########\r\n{txt.Value}\r\n############ END {txt.Key} ###########\r\n"))}}
-		""";
-            var options = new AzureOpenAIClientOptions();
-            options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
-            options.NetworkTimeout = TimeSpan.FromMinutes(10);
-            OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
+		//{{string.Join("\r\n", implementationFiles.Select(txt => $"############ {txt.Key} ##########\r\n{txt.Value}\r\n############ END {txt.Key} ###########\r\n"))}}
+		//""";
+  //          var options = new AzureOpenAIClientOptions();
+  //          options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
+  //          options.NetworkTimeout = TimeSpan.FromMinutes(10);
+  //          OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
 
-            var interfaceSyntax = CSharpSyntaxTree.ParseText(interfaceFileContents);
-            var methods = interfaceSyntax.GetCompilationUnitRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().SelectMany(i => i.DescendantNodes().OfType<MethodDeclarationSyntax>()
-                .Where(decl => decl.Body is null).Select(x => x.WithBody(null).WithLeadingTrivia(null).WithTrailingTrivia(null).WithAdditionalAnnotations().WithAttributeLists(new SyntaxList<AttributeListSyntax>()).GetText()))
-                .ToList();
+  //          var interfaceSyntax = CSharpSyntaxTree.ParseText(interfaceFileContents);
+  //          var methods = interfaceSyntax.GetCompilationUnitRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().SelectMany(i => i.DescendantNodes().OfType<MethodDeclarationSyntax>()
+  //              .Where(decl => decl.Body is null).Select(x => x.WithBody(null).WithLeadingTrivia(null).WithTrailingTrivia(null).WithAdditionalAnnotations().WithAttributeLists(new SyntaxList<AttributeListSyntax>()).GetText()))
+  //              .ToList();
 
-            // group methods into batches of 50
-            var response = new List<KeyValuePair<string, string>>();
-            int batchId = 0;
-            foreach (var methodBatch in methods.Batch(50))
-            {
-                batchId++;
-                var userMessageData = new
-                {
-                    methods = methodBatch.Select(m =>
-                        new
-                        {
-                            declaration = m.ToString().Trim().Trim(';'),
-                            summary = string.Empty
-                        })
-                };
+  //          // group methods into batches of 50
+  //          var response = new List<KeyValuePair<string, string>>();
+  //          int batchId = 0;
+  //          foreach (var methodBatch in methods.Batch(50))
+  //          {
+  //              batchId++;
+  //              var userMessageData = new
+  //              {
+  //                  methods = methodBatch.Select(m =>
+  //                      new
+  //                      {
+  //                          declaration = m.ToString().Trim().Trim(';'),
+  //                          summary = string.Empty
+  //                      })
+  //              };
 
-                var aiClient = openAiClient.GetChatClient(model.DeploymentName);
-                var completion = await aiClient.CompleteChatAsync(new ChatMessage[] {
-            ChatMessage.CreateSystemMessage(systemPrompt),
-            //ChatMessage.CreateSystemMessage("Json. Am I able to connect My AI services"),
-            ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
-            //ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize("Json. Give me some random data.")),
-        },
-                new ChatCompletionOptions
-                {
-                    ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
-                    Temperature = 0.0f,
-                    //MaxTokens = 16_000
-                });
+  //              var aiClient = openAiClient.GetChatClient(model.DeploymentName);
+  //              var completion = await aiClient.CompleteChatAsync(new ChatMessage[] {
+  //          ChatMessage.CreateSystemMessage(systemPrompt),
+  //          //ChatMessage.CreateSystemMessage("Json. Am I able to connect My AI services"),
+  //          ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
+  //          //ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize("Json. Give me some random data.")),
+  //      },
+  //              new ChatCompletionOptions
+  //              {
+  //                  ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+  //                  Temperature = 0.0f,
+  //                  //MaxTokens = 16_000
+  //              });
 
-                var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
-                response.AddRange(responseJson["methods"].AsArray()
-                    .Select(node => new { declaration = node["declaration"]?.AsValue().GetValue<string>(), summary = node["summary"]?.AsValue().GetValue<string>() })
-                    .ToDictionary(x => x.declaration, x => x.summary));
-            }
+  //              var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
+  //              response.AddRange(responseJson["methods"].AsArray()
+  //                  .Select(node => new { declaration = node["declaration"]?.AsValue().GetValue<string>(), summary = node["summary"]?.AsValue().GetValue<string>() })
+  //                  .ToDictionary(x => x.declaration, x => x.summary));
+  //          }
 
-            return response.GroupBy(x => x.Key).ToDictionary(x => x.Key, y => y.Last().Value);
-        }
+  //          return response.GroupBy(x => x.Key).ToDictionary(x => x.Key, y => y.Last().Value);
+  //      }
 
         decimal totalCost = 0m;
 
@@ -430,7 +443,7 @@ namespace BOEmbeddingService.Services
 
             return fullText;
         }
-
+      
         async Task<IList<MethodSourceInfo>> ReduceMethods(IList<MethodSourceInfo> methods, string serviceName, AIModelDefinition model)
         {
 
@@ -559,7 +572,7 @@ namespace BOEmbeddingService.Services
 		When generating description focus on functionality specific to this exact business object only and do not describe generic information that is likely to be common to overall framework and all other business objects.
 		Do not mention that some code is generated in your response and if applicable, include values for tolerances and constraints enforced by validations. Format your response to be easy to read.
 		
-		{{{GetKineticBusinessObjectImplementationDetails()}}}
+		{{{_commonService.GetKineticBusinessObjectImplementationDetails()}}}
 		
 		User will send data in the following format:
 		### Interface ###
@@ -606,29 +619,30 @@ namespace BOEmbeddingService.Services
             return result;
         }
 
-        async Task<string[]> GetFiles(string path)
-        {
-            try
-            {
-                foreach (string f in Directory.GetFiles(path))
-                {
-                    files.Add(f);
-                }
-                foreach (string d in Directory.GetDirectories(path))
-                {
-                    if (!d.Contains("bin") && !d.Contains("obj"))
-                    {
-                        Console.WriteLine(Path.GetFileName(d));
-                        GetFiles(d);
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
+        ////Commented by Hiren
+        //async Task<string[]> GetFiles(string path)
+        //{
+        //    try
+        //    {
+        //        foreach (string f in Directory.GetFiles(path))
+        //        {
+        //            files.Add(f);
+        //        }
+        //        foreach (string d in Directory.GetDirectories(path))
+        //        {
+        //            if (!d.Contains("bin") && !d.Contains("obj"))
+        //            {
+        //                Console.WriteLine(Path.GetFileName(d));
+        //                GetFiles(d);
+        //            }
+        //        }
+        //    }
+        //    catch (System.Exception ex)
+        //    {
+        //        Console.WriteLine(ex.Message);
+        //    }
 
-            return files.ToArray();
-        }
+        //    return files.ToArray();
+        //}
     }
 }

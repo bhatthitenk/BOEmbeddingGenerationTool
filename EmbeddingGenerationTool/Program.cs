@@ -5,7 +5,10 @@ using BOEmbeddingService.Services;
 var serviceprovider = new ServiceCollection()
     // Add Service
     .AddScoped<IEmbeddingService, EmbeddingService>()
-    .BuildServiceProvider();
+    .AddScoped<ICommonService, CommonService>()
+    .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
+    .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
+	.BuildServiceProvider();
 
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
 
