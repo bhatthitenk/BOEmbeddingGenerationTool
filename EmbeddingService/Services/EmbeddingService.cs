@@ -20,11 +20,13 @@ using System.Globalization;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Client;
+using Serilog;
 
 namespace BOEmbeddingService.Services
 {
     public class EmbeddingService : IEmbeddingService
     {
+        Serilog.Core.Logger _logger = LoggerService.GetInstance();
         List<string> files = new List<string>();
         Uri gitRepo = new Uri("https://epicor-corp.visualstudio.com/DefaultCollection/");
         const string openAiEndpoint = @"https://hb-dev-openai.openai.azure.com";
@@ -37,7 +39,8 @@ namespace BOEmbeddingService.Services
         AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
         AIModelDefinition gpt_4o = new("gpt-4o", 0.00275m / 1000, 0.011m / 1000);
 
-        public EmbeddingService() { }
+        public EmbeddingService() { 
+        }
 
         public async Task GetCompressMethods()
         {
@@ -47,9 +50,7 @@ namespace BOEmbeddingService.Services
                 //var model = gpt_4o_mini;
                 var model = gpt_4o;
                 /***********************************************/
-
                 //totalCostDumper.Dump("Total Cost");
-
                 Directory.CreateDirectory(targetDir);
                 var codeFileTargetDir = Path.Combine(targetDir, "CompressedCodeFiles");
                 Directory.CreateDirectory(codeFileTargetDir);
@@ -86,6 +87,7 @@ namespace BOEmbeddingService.Services
                 //items.DumpTell();
 
                 var items = await GetFiles(@"D:\Epicor\BOObjects");
+                var contractFiles = await GetFiles(@"D:\Epicor\BOContracts");
 
                 // skip root folder
                 foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
@@ -136,7 +138,7 @@ namespace BOEmbeddingService.Services
                     // contract
                     //var contractFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", $"/Source/Shared/Contracts/BO/{boName}", recursionLevel: VersionControlRecursionType.OneLevel);
                     files = new List<string>();
-                    var contractFiles = await GetFiles(@"D:\Epicor\BOContracts");
+                    
 
                     var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == boName + "Contract"/* && !x.IsFolder*/);
                     if(contractInterfaceFile == null)
@@ -247,7 +249,6 @@ namespace BOEmbeddingService.Services
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
             });
 
-            //UpdateRunningCost(completion, model, serviceName);
             var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
             var embeddings = await openAiClient.GetEmbeddingClient(openAiEmbeddingModelName).GenerateEmbeddingsAsync(questions);
@@ -365,8 +366,6 @@ namespace BOEmbeddingService.Services
                     Temperature = 0.0f,
                     //MaxTokens = 16_000
                 });
-
-                UpdateRunningCost(completion, model, boName + $"::{batchId}");
 
                 var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
                 response.AddRange(responseJson["methods"].AsArray()
@@ -531,7 +530,6 @@ namespace BOEmbeddingService.Services
                     //MaxTokens = 16000,
                     ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
                 });
-            UpdateRunningCost(completion, model, callIdentifier);
 
             var jsonData = JsonDocument.Parse(completion.Value.Content.Last().Text).RootElement.EnumerateObject().Select(token => new { Name = token.Name, Summary = token.Value.GetString() }).ToArray();
 
@@ -602,58 +600,14 @@ namespace BOEmbeddingService.Services
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
             });
 
-            // Cost estimation
-            //UpdateRunningCost(completions, model, serviceName);
-
             var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completions.Value.Content.Last().Text);
             result.Name = serviceName;
 
             return result;
         }
 
-        void UpdateRunningCost(ChatCompletion completion, AIModelDefinition model, string context)
-        {
-            // Cost estimation
-            var cost = completion.Usage.InputTokenCount * model.InputCostPerToken + completion.Usage.OutputTokenCount * model.OutputCostPerToken;
-            ((FormattableString)$"AI Cost = {cost:C}").ToString();
-            totalCost += cost;
-            //totalCostDumper.ClearContent();
-            //totalCostDumper.AppendContent(((FormattableString)$"AI Total Running Cost = {totalCost:C}").ToString(CultureInfo.CreateSpecificCulture("en-US")));
-        }
-
         async Task<string[]> GetFiles(string path)
         {
-            //Queue<string> queue = new Queue<string>();
-            //queue.Enqueue(path);
-
-            //List<string> files = new List<string>();
-            //while (queue.Count > 0)
-            //{
-            //    path = queue.Dequeue();
-            //    try
-            //    {
-            //        foreach (string subDir in Directory.GetDirectories(path))
-            //        {
-            //            if(!path.Contains("bin") && !path.Contains("obj"))
-            //                queue.Enqueue(subDir);
-            //        }
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Console.Error.WriteLine(ex);
-            //    }
-                
-            //    try
-            //    {
-            //        files.AddRange(Directory.GetFiles(path).ToList());
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Console.Error.WriteLine(ex);
-            //    }
-            //}
-
-
             try
             {
                 foreach (string f in Directory.GetFiles(path))
