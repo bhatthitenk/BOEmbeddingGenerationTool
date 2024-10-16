@@ -127,7 +127,10 @@ namespace BOEmbeddingService.Services
 
 
 					// Generate contract summary
-					var contractSummaryFile = Path.ChangeExtension(Path.Combine(contractDefinitionTargetDir, contractInterfaceFile.TrimStart('/', '\\')), ".contract.json");
+					FileInfo contractFile = new FileInfo(contractInterfaceFile);
+					//var contractSummaryFile = Path.ChangeExtension(Path.Combine(contractDefinitionTargetDir, contractInterfaceFile.TrimStart('/', '\\')), ".contract.json");
+					
+					var contractSummaryFile = Path.Combine(contractDefinitionTargetDir, boName, Path.ChangeExtension(contractFile.Name, ".contract.json"));
 					Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
 					Dictionary<string, string> contractSummary = new();
 					if (File.Exists(contractSummaryFile))
