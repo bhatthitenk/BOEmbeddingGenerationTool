@@ -9,6 +9,7 @@ namespace BOEmbeddingService.Interfaces
 {
 	public interface IGenerateInterfaceSummaryService
 	{
+		Task GenerateInterfaceSummary();
 		Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model);
 	}
 }

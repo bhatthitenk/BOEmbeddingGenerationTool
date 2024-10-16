@@ -8,6 +8,7 @@ using MoreLinq;
 using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
@@ -15,8 +16,10 @@ namespace BOEmbeddingService.Services
     public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
         private readonly IAppSettings _appSettings;
-        private readonly ILoggerService _loggerService;
-        private readonly List<string> files = new List<string>();
+		private readonly ILoggerService _loggerService;
+		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
+        private readonly Serilog.Core.Logger _logger = LoggerService.GetInstance();
+		private readonly List<string> files = new List<string>();
         private readonly Uri gitRepo;
         private readonly string openAiEndpoint;
         private readonly string openAiEmbeddingModelName;
@@ -25,12 +28,16 @@ namespace BOEmbeddingService.Services
 
 
         private readonly ICommonService _commonService;
+        private readonly IGenerateServiceDescription _generateServiceDescription;
 
-		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings, ILoggerService loggerService)
+		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings,
+			ILoggerService loggerService, IGenerateServiceDescription generateServiceDescription)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
 			_loggerService = loggerService;
+			_generateServiceDescription = generateServiceDescription;
+
 
             // Assign Values From AppConfig
             gitRepo = new Uri(_appSettings.gitRepo);
@@ -39,6 +46,84 @@ namespace BOEmbeddingService.Services
             openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
             targetDir = Path.GetDirectoryName(_appSettings.targetDir);
         }
+		public async Task GenerateInterfaceSummary()
+		{
+			try
+			{
+				var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
+
+				var items = await _commonService.GetFiles(_appSettings.BOObjectsLocation);
+				var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
+
+				// skip root folder
+				foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
+				{
+					FileInfo fi = new FileInfo(boRoot);
+
+					var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
+					var serviceName = $"ERP.BO.{boName}Svc";
+					var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
+					Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
+
+					if (Path.Exists(destinationFile))
+						// skip if file already exists
+						continue;
+
+					var aiContextFiles = new List<CodeFile>();
+
+					var contractInterfaceFile = contractFiles.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == boName + "Contract"/* && !x.IsFolder*/);
+					if (contractInterfaceFile == null)
+					{
+						continue;
+					}
+					//var contractContentStream = await File.ReadAllTextAsync(contractInterfaceFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", contractInterfaceFile.Path, (string)null);*/
+					StreamReader reader = new(contractInterfaceFile);
+					var content = await reader.ReadToEndAsync();
+
+					/*
+                    // we place this file at position 0 to ensure it is the last one removed
+                    aiContextFiles.Insert(0, new CodeFile { Content = content, Filename = Path.GetFileName(contractInterfaceFile.Path) });
+                    await contentStream.DisposeAsync();
+                    */
+
+
+					// Generate contract summary
+					FileInfo contractFile = new FileInfo(contractInterfaceFile);
+					var contractSummaryFile = Path.Combine(contractDefinitionTargetDir, boName, Path.ChangeExtension(contractFile.Name, ".contract.json"));
+					Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
+					Dictionary<string, string> contractSummary = new();
+					if (File.Exists(contractSummaryFile))
+					{
+						contractSummary = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(contractSummaryFile));
+					}
+					else
+					{
+						contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, openAIService.Model);
+						await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
+					}
+
+					// generate description with openAI
+					var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, openAIService.Model);
+					if (description == null)
+					{
+						// BO failed to process :(
+						//"Failed to process".Dump(boName);
+						await File.WriteAllTextAsync(destinationFile + ".bad", "");
+						continue;
+					}
+
+					//description.DumpTell();
+
+					await File.WriteAllTextAsync(destinationFile, System.Text.Json.JsonSerializer.Serialize(description, options: new JsonSerializerOptions { WriteIndented = true }));
+
+					//break; // stop iterating during testing
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine(ex.ToString());
+			}
+		}
 
 		public async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
 		{

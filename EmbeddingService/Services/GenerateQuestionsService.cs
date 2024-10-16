@@ -4,6 +4,7 @@ using BOEmbeddingService.Models;
 using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
@@ -14,9 +15,9 @@ namespace BOEmbeddingService.Services
         private readonly string openAiEndpoint;
         private readonly string openAiEmbeddingModelName;
 		private readonly ApiKeyCredential openAiKey;
+        OpenAIService openAIService = new OpenAIServiceBuilder().Build();
 
-
-		public GenerateQuestionsService(IAppSettings appSettings)
+        public GenerateQuestionsService(IAppSettings appSettings)
 		{
             _appSettings = appSettings;
 
@@ -25,11 +26,31 @@ namespace BOEmbeddingService.Services
             openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
             openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
         }
+		public async Task GenerateQuestions()
+		{
+            // generate questions
+            foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName), "*.json"))
+            {
+                var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
+
+                var questionFile = Path.Combine(_appSettings.targetDir, "Questions", filenameWithoutExtension + ".questions.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
+                if (File.Exists(questionFile))
+                    continue;
+
+                var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
+                var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
+
+
+                var questions = await GenerateQuestions(description, openAIService.Model, filenameWithoutExtension);
+                await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
 
 		/// <summary>
 		/// Generate questions for RAG
 		/// </summary>
-		public async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
+		internal async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
 		{
 			var prompt = """
 		You are an advanced ERP (enteprise resource processing) assistant. When provided with a description of
@@ -44,15 +65,15 @@ namespace BOEmbeddingService.Services
 		Format your response as json with field "questions" containing an array of strings, ne per question generated.
 		""";
 
-			var options = new AzureOpenAIClientOptions();
-			options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
-			options.NetworkTimeout = TimeSpan.FromMinutes(10);
-			OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
+			//var options = new AzureOpenAIClientOptions();
+			//options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
+			//options.NetworkTimeout = TimeSpan.FromMinutes(10);
+			//OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
 
-			var completion = await openAiClient.GetChatClient(model.DeploymentName).CompleteChatAsync(new ChatMessage[]
+			var completion = await openAIService.CompleteChatAsync(new ChatMessage[]
 			{
-		ChatMessage.CreateSystemMessage(prompt),
-		ChatMessage.CreateUserMessage(description.Description),
+				ChatMessage.CreateSystemMessage(prompt),
+				ChatMessage.CreateUserMessage(description.Description),
 			}, new ChatCompletionOptions
 			{
 				Temperature = 0.0f,
@@ -62,8 +83,8 @@ namespace BOEmbeddingService.Services
 
 			var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
-			var embeddings = await openAiClient.GetEmbeddingClient(openAiEmbeddingModelName).GenerateEmbeddingsAsync(questions);
-			return questions.Zip(embeddings.Value.Select(x => x.Index)).Select(data => (data.First, data.Second.ToString())).ToList();
+			var embeddings = await openAIService.GenerateEmbeddingsAsync(questions);
+			return questions.Zip(embeddings).Select(data => (data.First, data.Second.ToString())).ToList();
 		}
 	}
 }

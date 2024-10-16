@@ -12,6 +12,6 @@ namespace BOEmbeddingService.Interfaces
 		/// <summary>
 		/// Generate questions for RAG
 		/// </summary>
-		Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName);
+		Task  GenerateQuestions();
 	}
 }
