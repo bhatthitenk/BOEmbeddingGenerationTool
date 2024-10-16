@@ -29,14 +29,17 @@ namespace BOEmbeddingService.Services
 		private readonly ICommonService _commonService;
 		private readonly IGenerateInterfaceSummaryService _generateInterfaceSummaryService;
 		private readonly IGenerateQuestionsService _generateQuestionsService;
+        private readonly IGenerateServiceDescription _generateServiceDescription;
 
 		public EmbeddingService(ICommonService commonService, 
             IGenerateInterfaceSummaryService generateInterfaceSummaryService, 
-            IGenerateQuestionsService generateQuestionsService)
+            IGenerateQuestionsService generateQuestionsService,
+            IGenerateServiceDescription generateServiceDescription)
 		{
 			_commonService = commonService;
 			_generateInterfaceSummaryService = generateInterfaceSummaryService;
 			_generateQuestionsService = generateQuestionsService;
+            _generateServiceDescription = generateServiceDescription;
 		}
 
 		public async Task EmbeddedBOObjects()
@@ -168,7 +171,7 @@ namespace BOEmbeddingService.Services
                     }
 
                     // generate description with openAI
-                    var description = await GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, model);
+                    var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, model);
                     if (description == null)
                     {
                         // BO failed to process :(

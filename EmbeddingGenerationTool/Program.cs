@@ -10,6 +10,7 @@ var serviceprovider = new ServiceCollection()
     .AddScoped<ICommonService, CommonService>()
     .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
     .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
+    .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
     .AddSingleton<appSettings>()
 	.BuildServiceProvider();
 
