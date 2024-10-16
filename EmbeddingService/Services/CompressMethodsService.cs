@@ -1,16 +1,10 @@
 ﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.CSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OpenAI.Chat;
+using System.Text.Json;
 
 namespace BOEmbeddingService.Services
 {
@@ -39,40 +33,7 @@ namespace BOEmbeddingService.Services
 				var codeFileTargetDir = Path.Combine(_appSettings.targetDir, "CompressedCodeFiles");
 				Directory.CreateDirectory(codeFileTargetDir);
 
-				//Commented by Hiren
-				//var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
-				//Directory.CreateDirectory(contractDefinitionTargetDir);
-
-				// Commented Code
-				//var token = await Util.MSAL.AcquireTokenAsync("https://login.microsoftonline.com/common", "499b84ac-1321-427f-aa17-267ca6975798/.default");
-				//token.DumpTell();
-
-				// Commented Code
-				//VssConnection connection = new(gitRepo, new VssAadCredential(new VssAadToken("Bearer", token.AccessToken)));
-				//connection.Dump();
-				//await connection.ConnectAsync();
-
-				// for project collection change url to end with /tfs only and not the collection
-				//ProjectCollectionHttpClient projectCollectionClient = connection.GetClient<ProjectCollectionHttpClient>();
-
-				//IEnumerable<TeamProjectCollectionReference> projectCollections = projectCollectionClient.GetProjectCollections().Result;
-
-				//projectCollections.Dump();
-
-				//ProjectHttpClient projectClient = connection.GetClient<ProjectHttpClient>();
-
-				//projectClient.GetProjects().Result.Dump();
-				//var gitClient = connection.GetClient<GitHttpClient>();
-				//gitClient.DumpTell();
-				//var repository = await gitClient.GetRepositoryAsync("Epicor-PD", "current-kinetic");
-				//repository.DumpTell();
-
-				//var items = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", "/Source/Server/Services/BO", recursionLevel: VersionControlRecursionType.OneLevel);
-
-				//items.DumpTell();
-
 				var items = await _commonService.GetFiles(_appSettings.BOObjectsLocation);
-				//var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
 
 				// skip root folder
 				foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
@@ -80,14 +41,6 @@ namespace BOEmbeddingService.Services
 					FileInfo fi = new FileInfo(boRoot);
 
 					var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
-					//var serviceName = $"ERP.BO.{boName}Svc";
-					//var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
-					//Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
-
-					//if (Path.Exists(destinationFile))
-					//	// skip if file already exists
-					//	continue;
-
 					var aiContextFiles = new List<CodeFile>();
 
 					//var boFiles = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", boRoot.Path, recursionLevel: VersionControlRecursionType.OneLevel);

@@ -50,47 +50,6 @@ namespace BOEmbeddingService.Services
 			{
 				var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
 
-				/********** CHANGE THIS TO SWAP MODELS! ********/
-				//var model = gpt_4o_mini;
-				//var model = gpt_4o;
-				/***********************************************/
-				//totalCostDumper.Dump("Total Cost");
-				//Directory.CreateDirectory(_appSettings.targetDir);
-				//var codeFileTargetDir = Path.Combine(_appSettings.targetDir, "CompressedCodeFiles");
-				//Directory.CreateDirectory(codeFileTargetDir);
-
-				//Commented by Hiren
-				//var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
-				//Directory.CreateDirectory(contractDefinitionTargetDir);
-
-				// Commented Code
-				//var token = await Util.MSAL.AcquireTokenAsync("https://login.microsoftonline.com/common", "499b84ac-1321-427f-aa17-267ca6975798/.default");
-				//token.DumpTell();
-
-				// Commented Code
-				//VssConnection connection = new(gitRepo, new VssAadCredential(new VssAadToken("Bearer", token.AccessToken)));
-				//connection.Dump();
-				//await connection.ConnectAsync();
-
-				// for project collection change url to end with /tfs only and not the collection
-				//ProjectCollectionHttpClient projectCollectionClient = connection.GetClient<ProjectCollectionHttpClient>();
-
-				//IEnumerable<TeamProjectCollectionReference> projectCollections = projectCollectionClient.GetProjectCollections().Result;
-
-				//projectCollections.Dump();
-
-				//ProjectHttpClient projectClient = connection.GetClient<ProjectHttpClient>();
-
-				//projectClient.GetProjects().Result.Dump();
-				//var gitClient = connection.GetClient<GitHttpClient>();
-				//gitClient.DumpTell();
-				//var repository = await gitClient.GetRepositoryAsync("Epicor-PD", "current-kinetic");
-				//repository.DumpTell();
-
-				//var items = await gitClient.GetItemsAsync("Epicor-PD", "current-kinetic", "/Source/Server/Services/BO", recursionLevel: VersionControlRecursionType.OneLevel);
-
-				//items.DumpTell();
-
 				var items = await _commonService.GetFiles(_appSettings.BOObjectsLocation);
 				var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
 
@@ -128,8 +87,6 @@ namespace BOEmbeddingService.Services
 
 					// Generate contract summary
 					FileInfo contractFile = new FileInfo(contractInterfaceFile);
-					//var contractSummaryFile = Path.ChangeExtension(Path.Combine(contractDefinitionTargetDir, contractInterfaceFile.TrimStart('/', '\\')), ".contract.json");
-					
 					var contractSummaryFile = Path.Combine(contractDefinitionTargetDir, boName, Path.ChangeExtension(contractFile.Name, ".contract.json"));
 					Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
 					Dictionary<string, string> contractSummary = new();

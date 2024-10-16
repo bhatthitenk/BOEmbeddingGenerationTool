@@ -90,10 +90,10 @@ namespace BOEmbeddingService.Services
 				//CompressMethodCall
 				await _compressMethodsService.GetCompressMethods();
 
-                //Contract
+                //GeneraatContract
                 await _generateInterfaceSummaryService.GenerateInterfaceSummary();
-     //           }
 
+                //Generate Questions
                 await _generateQuestionsService.GenerateQuestions();
             }
             catch (Exception ex)
