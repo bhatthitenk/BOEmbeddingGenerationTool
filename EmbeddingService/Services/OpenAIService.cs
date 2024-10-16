@@ -21,7 +21,9 @@ namespace BOEmbeddingService.Services
             _model = model;
         }
 
-        public async Task<ClientResult<ChatCompletion>> CompleteChatAsync(IEnumerable<ChatMessage> messages, ChatCompletionOptions options)
+		public AIModelDefinition Model { get { return _model; } }
+
+		public async Task<ClientResult<ChatCompletion>> CompleteChatAsync(IEnumerable<ChatMessage> messages, ChatCompletionOptions options)
         {
             var chatClient = _openAiClient.GetChatClient(_model.DeploymentName);
             return await chatClient.CompleteChatAsync(messages, options);
