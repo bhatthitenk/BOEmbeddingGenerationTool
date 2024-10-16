@@ -14,13 +14,12 @@ namespace BOEmbeddingService.Services
 {
     public class EmbeddingService : IEmbeddingService
     {
-        static appSettings _appSettings = Configuration.BuildAppSettings();
-
+        private readonly IAppSettings _appSettings;
         Serilog.Core.Logger _logger = LoggerService.GetInstance();
         
-        string openAiEndpoint = _appSettings.openAiEndpoint;
-        ApiKeyCredential openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
-        string targetDir = Path.GetDirectoryName(_appSettings.targetDir);
+        private readonly string openAiEndpoint;
+        private readonly ApiKeyCredential openAiKey;
+        private readonly string targetDir;
 
         
         AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
@@ -34,13 +33,19 @@ namespace BOEmbeddingService.Services
 		public EmbeddingService(ICommonService commonService, 
             IGenerateInterfaceSummaryService generateInterfaceSummaryService, 
             IGenerateQuestionsService generateQuestionsService,
-            IGenerateServiceDescription generateServiceDescription)
+            IGenerateServiceDescription generateServiceDescription, IAppSettings appSettings)
 		{
+            _appSettings = appSettings;
 			_commonService = commonService;
 			_generateInterfaceSummaryService = generateInterfaceSummaryService;
 			_generateQuestionsService = generateQuestionsService;
             _generateServiceDescription = generateServiceDescription;
-		}
+
+            //Setting up values from AppSetting
+            openAiEndpoint = _appSettings.openAiEndpoint;
+            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+            targetDir = Path.GetDirectoryName(_appSettings.targetDir);
+        }
 
 		public async Task EmbeddedBOObjects()
         {

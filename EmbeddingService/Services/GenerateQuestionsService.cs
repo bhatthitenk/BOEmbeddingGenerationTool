@@ -10,15 +10,21 @@ namespace BOEmbeddingService.Services
 {
     public class GenerateQuestionsService : IGenerateQuestionsService
 	{
-        static appSettings _appSettings = Configuration.BuildAppSettings();
-        string openAiEndpoint = _appSettings.openAiEndpoint;
-        string openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
-        ApiKeyCredential openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+        private readonly IAppSettings _appSettings;
+        private readonly string openAiEndpoint;
+        private readonly string openAiEmbeddingModelName;
+		private readonly ApiKeyCredential openAiKey;
 
 
-		public GenerateQuestionsService()
+		public GenerateQuestionsService(IAppSettings appSettings)
 		{
-		}
+            _appSettings = appSettings;
+
+            //Assign Values from Config
+            openAiEndpoint = _appSettings.openAiEndpoint;
+            openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
+            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+        }
 
 		/// <summary>
 		/// Generate questions for RAG

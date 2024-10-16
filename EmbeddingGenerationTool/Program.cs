@@ -1,8 +1,16 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Services;
-using Microsoft.Extensions.Configuration;
 using BOEmbeddingService;
+using Microsoft.Extensions.Configuration;
+
+
+IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appSettings.json", false, false).Build();
+
+var appSettings = new AppSettings();
+configuration.Bind(appSettings);
+
+//var appSettings = Configuration.BuildAppSettings();
 
 var serviceprovider = new ServiceCollection()
     // Add Service
@@ -11,10 +19,9 @@ var serviceprovider = new ServiceCollection()
     .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
     .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
     .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
-    .AddSingleton<appSettings>()
+    .AddSingleton<IAppSettings>(appSettings)
 	.BuildServiceProvider();
 
-var appSettings = Configuration.BuildAppSettings();
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
 
 await embeddingService.EmbeddedBOObjects();

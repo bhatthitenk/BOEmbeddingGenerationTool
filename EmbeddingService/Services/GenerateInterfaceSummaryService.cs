@@ -14,24 +14,31 @@ namespace BOEmbeddingService.Services
 {
     public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
-
-        static appSettings _appSettings = Configuration.BuildAppSettings();
-
-        Serilog.Core.Logger _logger = LoggerService.GetInstance();
-        List<string> files = new List<string>();
-        Uri gitRepo = new Uri(_appSettings.gitRepo);
-        string openAiEndpoint = _appSettings.openAiEndpoint;
-        string openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
-        ApiKeyCredential openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
-        string targetDir = Path.GetDirectoryName(_appSettings.targetDir);
+        private readonly IAppSettings _appSettings;
+        private readonly Serilog.Core.Logger _logger = LoggerService.GetInstance();
+        private readonly List<string> files = new List<string>();
+        private readonly Uri gitRepo;
+        private readonly string openAiEndpoint;
+        private readonly string openAiEmbeddingModelName;
+        private readonly ApiKeyCredential openAiKey;
+        private readonly string targetDir;
 
 
         private readonly ICommonService _commonService;
 
-		public GenerateInterfaceSummaryService(ICommonService commonService)
+		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings)
 		{
-			_commonService = commonService;
-		}
+            _appSettings = appSettings;
+            _commonService = commonService;
+
+
+            // Assign Values From AppConfig
+            gitRepo = new Uri(_appSettings.gitRepo);
+            openAiEndpoint = _appSettings.openAiEndpoint;
+            openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
+            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+            targetDir = Path.GetDirectoryName(_appSettings.targetDir);
+        }
 
 		public async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
 		{

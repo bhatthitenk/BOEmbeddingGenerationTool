@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BOEmbeddingService
+namespace BOEmbeddingService.Interfaces
 {
-    public class appSettings
+    public interface IAppSettings
     {
         public string openAiEndpoint { get; set; }
         public string openAiKey { get; set; }
