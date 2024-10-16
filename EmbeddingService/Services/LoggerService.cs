@@ -5,14 +5,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BOEmbeddingService.Interfaces;
 
-namespace BOEmbeddingService
+namespace BOEmbeddingService.Services
 {
-    public static class LoggerService
+    public class LoggerService : ILoggerService
     {
-        public static Logger GetInstance()
+        public Logger _logger {  get; set; }
+        public void GetInstance()
         {
-            return new LoggerConfiguration()
+            _logger = new LoggerConfiguration()
                             .WriteTo.Console()
                             .WriteTo.File("Logs/embeddingLog.txt", rollingInterval: RollingInterval.Day)
                             .CreateLogger();

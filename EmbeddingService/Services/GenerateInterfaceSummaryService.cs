@@ -15,7 +15,7 @@ namespace BOEmbeddingService.Services
     public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
         private readonly IAppSettings _appSettings;
-        private readonly Serilog.Core.Logger _logger = LoggerService.GetInstance();
+        private readonly ILoggerService _loggerService;
         private readonly List<string> files = new List<string>();
         private readonly Uri gitRepo;
         private readonly string openAiEndpoint;
@@ -26,11 +26,11 @@ namespace BOEmbeddingService.Services
 
         private readonly ICommonService _commonService;
 
-		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings)
+		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings, ILoggerService loggerService)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
-
+			_loggerService = loggerService;
 
             // Assign Values From AppConfig
             gitRepo = new Uri(_appSettings.gitRepo);

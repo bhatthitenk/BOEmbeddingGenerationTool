@@ -10,6 +10,8 @@ IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appSettin
 var appSettings = new AppSettings();
 configuration.Bind(appSettings);
 
+var loggerService = new LoggerService();
+loggerService.GetInstance();
 //var appSettings = Configuration.BuildAppSettings();
 
 var serviceprovider = new ServiceCollection()
@@ -20,7 +22,8 @@ var serviceprovider = new ServiceCollection()
     .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
     .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
     .AddSingleton<IAppSettings>(appSettings)
-	.BuildServiceProvider();
+    .AddSingleton<ILoggerService>(loggerService)
+    .BuildServiceProvider();
 
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
 
