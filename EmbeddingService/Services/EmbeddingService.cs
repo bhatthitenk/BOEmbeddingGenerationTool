@@ -19,8 +19,6 @@ namespace BOEmbeddingService.Services
         
         private readonly string openAiEndpoint;
         private readonly ApiKeyCredential openAiKey;
-        private readonly string targetDir;
-
 
         //AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
         //AIModelDefinition gpt_4o = new("gpt-4o", 0.00275m / 1000, 0.011m / 1000);
@@ -49,7 +47,6 @@ namespace BOEmbeddingService.Services
             //Setting up values from AppSetting
             openAiEndpoint = _appSettings.openAiEndpoint;
             openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
-            targetDir = Path.GetDirectoryName(_appSettings.targetDir);
         }
 
 		public async Task EmbeddedBOObjects()
@@ -57,7 +54,7 @@ namespace BOEmbeddingService.Services
             try
             {
 
-                var contractDefinitionTargetDir = Path.Combine(targetDir, "ContractSummaries");
+                var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
                 Directory.CreateDirectory(contractDefinitionTargetDir);
 
                 // Commented Code
@@ -91,7 +88,7 @@ namespace BOEmbeddingService.Services
                 var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
 
 				//CompressMethodCall
-				_compressMethodsService.GetCompressMethods();
+				await _compressMethodsService.GetCompressMethods();
 
                 // skip root folder
                 foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
@@ -155,11 +152,11 @@ namespace BOEmbeddingService.Services
                 }
 
                 // generate questions
-                foreach (var descriptionFile in Directory.GetFiles(Path.Combine(targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName), "*.json"))
+                foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName), "*.json"))
                 {
                     var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
 
-                    var questionFile = Path.Combine(targetDir, "Questions", filenameWithoutExtension + ".questions.json");
+                    var questionFile = Path.Combine(_appSettings.targetDir, "Questions", filenameWithoutExtension + ".questions.json");
                     Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
                     if (File.Exists(questionFile))
                         continue;
