@@ -17,7 +17,8 @@ namespace BOEmbeddingService.Services
 				{
 					if (!d.Contains("bin") && !d.Contains("obj"))
 					{
-						GetFiles(d);
+						var subDirFiles = await GetFiles(d);
+						files.AddRange(subDirFiles);
 					}
 				}
 			}
