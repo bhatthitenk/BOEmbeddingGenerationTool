@@ -94,23 +94,7 @@ namespace BOEmbeddingService.Services
                 await _generateInterfaceSummaryService.GenerateInterfaceSummary();
      //           }
 
-                // generate questions
-                foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName), "*.json"))
-                {
-                    var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
-
-                    var questionFile = Path.Combine(_appSettings.targetDir, "Questions", filenameWithoutExtension + ".questions.json");
-                    Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
-                    if (File.Exists(questionFile))
-                        continue;
-
-                    var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
-                    var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
-
-
-                    var questions = await _generateQuestionsService.GenerateQuestions(description, openAIService.Model, filenameWithoutExtension);
-                    await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
-                }
+                await _generateQuestionsService.GenerateQuestions();
             }
             catch (Exception ex)
             {
