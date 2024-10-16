@@ -50,7 +50,7 @@ namespace BOEmbeddingService.Services
 		/// <summary>
 		/// Generate questions for RAG
 		/// </summary>
-		internal async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
+		public async Task<List<(string, string)>> GenerateQuestions(BusinessObjectDescription description, AIModelDefinition model, string serviceName)
 		{
 			var prompt = """
 		You are an advanced ERP (enteprise resource processing) assistant. When provided with a description of

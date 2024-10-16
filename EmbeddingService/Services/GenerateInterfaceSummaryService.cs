@@ -18,7 +18,6 @@ namespace BOEmbeddingService.Services
         private readonly IAppSettings _appSettings;
 		private readonly ILoggerService _loggerService;
 		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
-        private readonly Serilog.Core.Logger _logger = LoggerService.GetInstance();
 		private readonly List<string> files = new List<string>();
         private readonly Uri gitRepo;
         private readonly string openAiEndpoint;
