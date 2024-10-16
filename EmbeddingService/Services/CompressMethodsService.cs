@@ -80,13 +80,13 @@ namespace BOEmbeddingService.Services
 					FileInfo fi = new FileInfo(boRoot);
 
 					var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
-					var serviceName = $"ERP.BO.{boName}Svc";
-					var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
-					Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
+					//var serviceName = $"ERP.BO.{boName}Svc";
+					//var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
+					//Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
 
-					if (Path.Exists(destinationFile))
-						// skip if file already exists
-						continue;
+					//if (Path.Exists(destinationFile))
+					//	// skip if file already exists
+					//	continue;
 
 					var aiContextFiles = new List<CodeFile>();
 
