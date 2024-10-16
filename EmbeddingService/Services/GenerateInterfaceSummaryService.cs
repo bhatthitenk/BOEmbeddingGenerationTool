@@ -16,6 +16,7 @@ namespace BOEmbeddingService.Services
     public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
         private readonly IAppSettings _appSettings;
+		private readonly ILoggerService _loggerService;
 		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
         private readonly Serilog.Core.Logger _logger = LoggerService.GetInstance();
 		private readonly List<string> files = new List<string>();
@@ -30,10 +31,11 @@ namespace BOEmbeddingService.Services
         private readonly IGenerateServiceDescription _generateServiceDescription;
 
 		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings,
-			IGenerateServiceDescription generateServiceDescription)
+			ILoggerService loggerService, IGenerateServiceDescription generateServiceDescription)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
+			_loggerService = loggerService;
 			_generateServiceDescription = generateServiceDescription;
 
 

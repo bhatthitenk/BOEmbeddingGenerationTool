@@ -15,7 +15,7 @@ namespace BOEmbeddingService.Services
     public class EmbeddingService : IEmbeddingService
     {
         private readonly IAppSettings _appSettings;
-        Serilog.Core.Logger _logger = LoggerService.GetInstance();
+        private readonly ILoggerService _loggerService;
         
         private readonly string openAiEndpoint;
         private readonly ApiKeyCredential openAiKey;
@@ -35,9 +35,10 @@ namespace BOEmbeddingService.Services
 			ICompressMethodsService compressMethodsService,
 			IGenerateInterfaceSummaryService generateInterfaceSummaryService, 
             IGenerateQuestionsService generateQuestionsService,
-            IGenerateServiceDescription generateServiceDescription, IAppSettings appSettings)
+            IGenerateServiceDescription generateServiceDescription, IAppSettings appSettings, ILoggerService loggerService)
 		{
             _appSettings = appSettings;
+            _loggerService = loggerService;
 			_commonService = commonService;
             _compressMethodsService = compressMethodsService;
 			_generateInterfaceSummaryService = generateInterfaceSummaryService;
