@@ -1,5 +1,7 @@
 ﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,17 +9,21 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using OpenAI.Chat;
 
 namespace BOEmbeddingService.Services
 {
 	public class CompressMethodsService : ICompressMethodsService
 	{
+        private readonly IAppSettings _appSettings;
 		private readonly ICommonService _commonService;
 		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
 
-		public CompressMethodsService(ICommonService commonService)
+		public CompressMethodsService(ICommonService commonService, IAppSettings appSettings)
 		{
 			_commonService = commonService;
+			_appSettings = appSettings;	
 		}
 
 		public async Task GetCompressMethods()
@@ -29,12 +35,13 @@ namespace BOEmbeddingService.Services
 				//var model = gpt_4o;
 				/***********************************************/
 				//totalCostDumper.Dump("Total Cost");
-				Directory.CreateDirectory(targetDir);
-				var codeFileTargetDir = Path.Combine(targetDir, "CompressedCodeFiles");
+				Directory.CreateDirectory(_appSettings.targetDir);
+				var codeFileTargetDir = Path.Combine(_appSettings.targetDir, "CompressedCodeFiles");
 				Directory.CreateDirectory(codeFileTargetDir);
 
-				var contractDefinitionTargetDir = Path.Combine(targetDir, "ContractSummaries");
-				Directory.CreateDirectory(contractDefinitionTargetDir);
+				//Commented by Hiren
+				//var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
+				//Directory.CreateDirectory(contractDefinitionTargetDir);
 
 				// Commented Code
 				//var token = await Util.MSAL.AcquireTokenAsync("https://login.microsoftonline.com/common", "499b84ac-1321-427f-aa17-267ca6975798/.default");
@@ -65,7 +72,7 @@ namespace BOEmbeddingService.Services
 				//items.DumpTell();
 
 				var items = await _commonService.GetFiles(_appSettings.BOObjectsLocation);
-				var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
+				//var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
 
 				// skip root folder
 				foreach (var boRoot in items/*.Skip(1)*/) //.Where(x => x.Path.EndsWith("APInvoice")))
@@ -74,7 +81,7 @@ namespace BOEmbeddingService.Services
 
 					var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
 					var serviceName = $"ERP.BO.{boName}Svc";
-					var destinationFile = Path.Combine(targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
+					var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
 					Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
 
 					if (Path.Exists(destinationFile))
@@ -118,6 +125,164 @@ namespace BOEmbeddingService.Services
 			{
 				Console.WriteLine(ex.ToString());
 			}
+		}
+
+		async Task<string> CompressCodeFileAsync(string fullText, string className, int maxTokens, AIModelDefinition model)
+		{
+			var encoder = Tiktoken.ModelToEncoder.For(model.DeploymentName);
+			var tokens = encoder.CountTokens(fullText);
+			//tokens.Dump(className + " BEFORE");
+			if (tokens > maxTokens)
+			{
+				// trim needed
+
+				var documentTree = CSharpSyntaxTree.ParseText(fullText);
+				var methods = documentTree.GetCompilationUnitRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+					.Select(m => new MethodSourceInfo
+					{
+						Identifier = m.Identifier.ValueText,
+						Source = m.Body?.GetText().ToString(),
+						Span = m.FullSpan,
+						Node = m,
+						Tokens = encoder.CountTokens(m.ToFullString()),
+					});
+
+				// optimiseIdentifiers
+				foreach (var overload in methods.GroupBy(m => m.Identifier).Where(g => g.Count() > 1).SelectMany(grp => grp.ToArray()))
+				{
+					// these are different overloads of the same method, so let's optimise their identifiers by adding random GUID to the end
+					overload.Identifier += Guid.NewGuid().ToString("N");
+				}
+
+				var normalised = await ReduceMethods(methods.ToList(), className, model);
+				/*var root = documentTree.GetCompilationUnitRoot();
+                root = root.ReplaceNodes(normalised.Select(x => x.Node), 
+                    (a, b) => a.WithBody(SyntaxFactory.Block(SyntaxFactory.EmptyStatement()
+                        .WithLeadingTrivia(SyntaxFactory.Comment(normalised.First(x => x.Node.Span == a.Span).Source ?? "{ }")))));
+                */
+
+				var replacementClass = SyntaxFactory.CompilationUnit()
+					.AddMembers(SyntaxFactory.ClassDeclaration(
+						SyntaxFactory.Identifier(className)
+							.WithLeadingTrivia(SyntaxFactory.Whitespace(" "))
+							.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")))
+						.AddMembers(normalised.Select(m => m.Node.WithBody(SyntaxFactory.Block(SyntaxFactory.EmptyStatement()
+							.WithLeadingTrivia(SyntaxFactory.Comment(m.Source ?? ""))))).ToArray()));
+
+				using var sw = new StringWriter();
+				replacementClass.WriteTo(sw);
+				await sw.FlushAsync();
+				fullText = sw.ToString();
+				encoder.CountTokens(fullText);//.Dump(className + " AFTER");
+			}
+
+
+			return fullText;
+		}
+
+		async Task<IList<MethodSourceInfo>> ReduceMethods(IList<MethodSourceInfo> methods, string serviceName, AIModelDefinition model)
+		{
+
+			// from https://stackoverflow.com/questions/32105215/how-do-you-use-linq-to-group-records-based-on-an-accumulator
+			int groupTotal = 0;
+			int groupMethods = 0;
+			int groupId = 0;
+			int maxTokensPerGroup = 80_000; // arbitrary
+			int maxMethodsPerGroup = 25; // arbitrary
+			var batches = methods.Where(m => (m.Node.Body?.Statements.Count ?? 0) > 1).Select(m =>
+			{
+				int accumulator = groupTotal + m.Tokens;
+				if (accumulator > maxTokensPerGroup || groupMethods > maxMethodsPerGroup)
+				{
+					groupId++;
+					groupMethods = 0;
+					groupTotal = m.Tokens;
+				}
+				else
+				{
+					groupMethods++;
+					groupTotal = accumulator;
+				}
+				return new { Group = groupId, Method = m };
+			});
+			foreach (var batch in batches.GroupBy(b => b.Group))
+			{
+				var compressed = await CompressMethods(serviceName + "::" + batch.Key, batch.GroupBy(x => x.Method.Identifier).ToDictionary(x => x.Key, x => x.Last().Method.Node.ToFullString()), model);
+
+				foreach (var compressedMethod in compressed)
+				{
+					var match = methods.FirstOrDefault(m => m.Identifier == compressedMethod.Key);
+					if (match != null)
+						match.Source = "/*\r\n" + compressedMethod.Value + "\r\n*/";
+				}
+				//method.Source = "/*\r\n" + completion.Value.Content.Last().Text.Replace("```pseudocode", string.Empty).Replace("```", string.Empty) + "\r\n*/";
+			}
+
+			// process the ones that failed
+			int unprocessedCycle = 0;
+			while (methods.Where(m => m.Source is not null && !m.Source.StartsWith("/*")).ToArray() is { Length: > 0 } unprocessedMethods)
+			{
+				unprocessedCycle++;
+				var compressed = await CompressMethods(serviceName + "::unprocessed::" + unprocessedCycle, unprocessedMethods.GroupBy(x => x.Identifier).ToDictionary(x => x.Key, x => x.Last().Node.ToFullString()), model);
+				foreach (var compressedMethod in compressed)
+				{
+					var match = methods.FirstOrDefault(m => m.Identifier == compressedMethod.Key);
+					if (match != null)
+						match.Source = "/*\r\n" + compressedMethod.Value + "\r\n*/";
+				}
+
+				if (unprocessedCycle > 10) // arbitrary
+				{
+					break;
+				}
+			}
+			return methods;
+		}
+
+		/// <summary>
+		/// Compress methods to replace them with summary of what each method does
+		/// </summary>
+		async Task<Dictionary<string, string>> CompressMethods(string callIdentifier, Dictionary<string, string> methods, AIModelDefinition model)
+		{
+			//var options = new AzureOpenAIClientOptions();
+			//options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(5);
+			//OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
+			var completion = await openAIService.CompleteChatAsync(new ChatMessage[]
+				{
+			ChatMessage.CreateSystemMessage("""
+				You are a code analysis assistant. When supplied with implementation of a method body from ERP system,
+				you generate summary of what logic in this method does, aimed at software developer audience.
+				Be concise and avoid unnecessary and meaningless statements - your goal is to summarise logic overall and functionality only, not line by line.
+				Identify most important logic in the method and summarise it only. Spurious initialisations and defaults are to only be included if they are relevant and key to understanding algorithms within.
+				Your summary should be no longer than 1000 tokens and as short as possible. Do not duplicate any code from the method. Just provide brief and concise summary.
+				Aim for as short a summary as possible. Ideally summary should just construe 3-5 sentences.
+				Only summarise method body, do not copy declaration - it is only there as a reference.
+				
+				Do not format your response with Markdown code block. Just return summary without any extra blocks surrounding it.
+				
+				Your response should come as JSON object with keys being method names and values the method summary, e.g.
+				{
+					"method1": "Generate sample data for concatenation of parameter1 and parameter2"
+				}
+				
+				For methods that have no implementation generate empty string as summary. Do not include original code in your response (if absolutely necessary, verbally summarise it) - it should be just a text description of what a given method does.
+				Remember - summarise every method that has implementation that was provided by user.
+				
+				Use will supply methods in the following format:
+				### <MethodName> ###
+				<method implementation code>
+				"""),
+			ChatMessage.CreateUserMessage(string.Join("\r\n\r\n",methods.Select(b => $"### {b.Key} ###\r\n{b.Value}"))),
+				}, new ChatCompletionOptions
+				{
+					Temperature = 0.0f,
+					//MaxTokens = 16000,
+					ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
+				});
+
+			var jsonData = JsonDocument.Parse(completion.Value.Content.Last().Text).RootElement.EnumerateObject().Select(token => new { Name = token.Name, Summary = token.Value.GetString() }).ToArray();
+
+			return jsonData.GroupBy(x => x.Name).ToDictionary(x => x.Key, y => y.Last().Summary);
 		}
 	}
 }

@@ -16,8 +16,9 @@ var serviceprovider = new ServiceCollection()
     // Add Service
     .AddScoped<IEmbeddingService, EmbeddingService>()
     .AddScoped<ICommonService, CommonService>()
+    .AddScoped<ICompressMethodsService, CompressMethodsService>()
     .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
-    .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
+	.AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
     .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
     .AddSingleton<IAppSettings>(appSettings)
 	.BuildServiceProvider();
