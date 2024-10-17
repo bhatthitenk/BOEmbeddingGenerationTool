@@ -24,6 +24,7 @@ var serviceprovider = new ServiceCollection()
     .AddSingleton<IAppSettings>(appSettings)
     .AddSingleton<ILoggerService>(loggerService)
     .AddSingleton<IOpenAIService, OpenAIService>()
+    .AddSingleton<IMongoDbService, MongoDbService>()
     .BuildServiceProvider();
 
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();

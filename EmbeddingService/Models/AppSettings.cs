@@ -1,4 +1,5 @@
 ﻿using BOEmbeddingService.Interfaces;
+using BOEmbeddingService.Models;
 
 namespace BOEmbeddingService
 {
@@ -12,5 +13,7 @@ namespace BOEmbeddingService
         public string targetDir { get; set; }
         public string BOObjectsLocation { get; set; }
         public string BOContractsLocation { get; set; }
+
+        public MongoDbSettings mongoDbSettings { get; set; }
     }
 }
