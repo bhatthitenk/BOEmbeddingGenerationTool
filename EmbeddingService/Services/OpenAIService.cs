@@ -7,31 +7,52 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ClientModel;
+using BOEmbeddingService.Interfaces;
+using Azure.AI.OpenAI;
+using System.Runtime;
 
 namespace BOEmbeddingService.Services
 {
-    public class OpenAIService
+    public class OpenAIService : IOpenAIService
     {
-        private readonly OpenAIClient _openAiClient;
-        private readonly AIModelDefinition _model;
-
-        public OpenAIService(OpenAIClient openAiClient, AIModelDefinition model)
+        
+        private readonly AIModelDefinition _modelDefinition;
+        private readonly IAppSettings _appSettings;
+        private string _openAiChatModelName;
+        private string _openAiEmbeddingModelName;
+        private int _retryCount = 2;
+        private TimeSpan _networkTimeout = TimeSpan.FromMinutes(10);
+        private AzureOpenAIClient _openAIClient;
+        public OpenAIService(IAppSettings appSettings)
         {
-            _openAiClient = openAiClient;
-            _model = model;
+            _appSettings = appSettings;
+
+            //Setting up values from AppSetting
+            _openAiChatModelName = _appSettings.openAiChatModelName;
+            _openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
+            _modelDefinition = new AIModelDefinition(_openAiChatModelName, 0.00275m / 1000, 0.011m / 1000); //TBD - need to think of getting cost from configuration. 
+            _openAIClient = new AzureOpenAIClient(
+                                                    new Uri(_appSettings.openAiEndpoint),
+                                                    new ApiKeyCredential(_appSettings.openAiKey),
+                                                    new AzureOpenAIClientOptions
+                                                    {
+                                                        RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(_retryCount),
+                                                        NetworkTimeout = _networkTimeout
+                                                    }
+            );
         }
 
-		public AIModelDefinition Model { get { return _model; } }
+		public AIModelDefinition Model => _modelDefinition;
 
-		public async Task<ClientResult<ChatCompletion>> CompleteChatAsync(IEnumerable<ChatMessage> messages, ChatCompletionOptions options)
+        public async Task<ClientResult<ChatCompletion>> CompleteChatAsync(IEnumerable<ChatMessage> messages, ChatCompletionOptions options)
         {
-            var chatClient = _openAiClient.GetChatClient(_model.DeploymentName);
+            var chatClient = _openAIClient.GetChatClient(_openAiChatModelName);
             return await chatClient.CompleteChatAsync(messages, options);
         }
 
         public async Task<string[]> GenerateEmbeddingsAsync(IEnumerable<string> texts)
         {
-            var embeddingClient = _openAiClient.GetEmbeddingClient("text-embedding-3-small");
+            var embeddingClient = _openAIClient.GetEmbeddingClient(_openAiEmbeddingModelName);
             var response = await embeddingClient.GenerateEmbeddingsAsync(texts);
             return response.Value.Select(x => x.Index.ToString()).ToArray();
         }

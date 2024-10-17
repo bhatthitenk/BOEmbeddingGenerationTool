@@ -14,11 +14,12 @@ namespace BOEmbeddingService.Services
     public class GenerateServiceDescriptionService : IGenerateServiceDescription
     {
         private readonly ICommonService _commonService;
+		private readonly IOpenAIService _openAIService;
 
-        OpenAIService openAIService = new OpenAIServiceBuilder().Build();
-        public GenerateServiceDescriptionService(ICommonService commonService)
+        public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService)
 		{
             _commonService = commonService;
+			_openAIService = openAIService;
         }
         public async Task<BusinessObjectDescription> GenerateServiceDescriptionAsync(string serviceName, Dictionary<string, string> interfaceDefinition, IEnumerable<CodeFile> codeFiles, AIModelDefinition model)
         {
@@ -55,7 +56,7 @@ namespace BOEmbeddingService.Services
 		""";
 
             // query Open AI for answer
-            var completions = await openAIService.CompleteChatAsync(new ChatMessage[]
+            var completions = await _openAIService.CompleteChatAsync(new ChatMessage[]
             {
         new SystemChatMessage(prompt),
         new UserChatMessage($$$"""

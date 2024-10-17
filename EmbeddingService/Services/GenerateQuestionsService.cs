@@ -12,24 +12,18 @@ namespace BOEmbeddingService.Services
     public class GenerateQuestionsService : IGenerateQuestionsService
 	{
         private readonly IAppSettings _appSettings;
-        private readonly string openAiEndpoint;
-        private readonly string openAiEmbeddingModelName;
-		private readonly ApiKeyCredential openAiKey;
-        OpenAIService openAIService = new OpenAIServiceBuilder().Build();
+		private readonly IOpenAIService _openAIService;
+      
 
-        public GenerateQuestionsService(IAppSettings appSettings)
+        public GenerateQuestionsService(IAppSettings appSettings, IOpenAIService openAIService)
 		{
             _appSettings = appSettings;
-
-            //Assign Values from Config
-            openAiEndpoint = _appSettings.openAiEndpoint;
-            openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
-            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
+            _openAIService = openAIService;
         }
 		public async Task GenerateQuestions()
 		{
             // generate questions
-            foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName), "*.json"))
+            foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", _openAIService.Model.DeploymentName), "*.json"))
             {
                 var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
 
@@ -42,7 +36,7 @@ namespace BOEmbeddingService.Services
                 var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
 
 
-                var questions = await GenerateQuestions(description, openAIService.Model, filenameWithoutExtension);
+                var questions = await GenerateQuestions(description, _openAIService.Model, filenameWithoutExtension);
                 await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
             }
         }
@@ -70,7 +64,7 @@ namespace BOEmbeddingService.Services
 			//options.NetworkTimeout = TimeSpan.FromMinutes(10);
 			//OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
 
-			var completion = await openAIService.CompleteChatAsync(new ChatMessage[]
+			var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
 			{
 				ChatMessage.CreateSystemMessage(prompt),
 				ChatMessage.CreateUserMessage(description.Description),
@@ -83,7 +77,7 @@ namespace BOEmbeddingService.Services
 
 			var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
-			var embeddings = await openAIService.GenerateEmbeddingsAsync(questions);
+			var embeddings = await _openAIService.GenerateEmbeddingsAsync(questions);
 			return questions.Zip(embeddings).Select(data => (data.First, data.Second.ToString())).ToList();
 		}
 	}
