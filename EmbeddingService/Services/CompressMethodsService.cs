@@ -11,13 +11,13 @@ namespace BOEmbeddingService.Services
 	public class CompressMethodsService : ICompressMethodsService
 	{
         private readonly IAppSettings _appSettings;
-		private readonly ICommonService _commonService;
-		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
-
-		public CompressMethodsService(ICommonService commonService, IAppSettings appSettings)
+        private readonly ICommonService _commonService;
+        private readonly IOpenAIService _openAIService;
+        public CompressMethodsService(ICommonService commonService, IAppSettings appSettings, IOpenAIService openAIService)
 		{
 			_commonService = commonService;
 			_appSettings = appSettings;	
+			_openAIService = openAIService;
 		}
 
 		public async Task GetCompressMethods()
@@ -62,7 +62,7 @@ namespace BOEmbeddingService.Services
 							//var mainFileContentStream = File.ReadAllText(mainCodeFile); /*gitClient.GetItemTextAsync("Epicor-PD", "current-kinetic", mainCodeFile.Path, (string)null)*/
 							StreamReader mainFileReader = new(mainCodeFile);
 							var mainContent = await mainFileReader.ReadToEndAsync();
-							var compressed = await CompressCodeFileAsync(mainContent, boName, 1, openAIService.Model);
+							var compressed = await CompressCodeFileAsync(mainContent, boName, 1, _openAIService.Model);
 							//compressed.DumpTell();
 							await File.WriteAllTextAsync(compressedCodeFile, compressed);
 							aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
@@ -200,7 +200,7 @@ namespace BOEmbeddingService.Services
 			//var options = new AzureOpenAIClientOptions();
 			//options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(5);
 			//OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
-			var completion = await openAIService.CompleteChatAsync(new ChatMessage[]
+			var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
 				{
 			ChatMessage.CreateSystemMessage("""
 				You are a code analysis assistant. When supplied with implementation of a method body from ERP system,

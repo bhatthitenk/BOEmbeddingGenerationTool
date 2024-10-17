@@ -4,7 +4,6 @@ using BOEmbeddingService.Services;
 using BOEmbeddingService;
 using Microsoft.Extensions.Configuration;
 
-
 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appSettings.json", false, false).Build();
 
 var appSettings = new AppSettings();
@@ -24,6 +23,7 @@ var serviceprovider = new ServiceCollection()
     .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
     .AddSingleton<IAppSettings>(appSettings)
     .AddSingleton<ILoggerService>(loggerService)
+    .AddSingleton<IOpenAIService, OpenAIService>()
     .BuildServiceProvider();
 
 var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();

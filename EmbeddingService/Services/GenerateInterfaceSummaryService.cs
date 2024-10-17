@@ -17,12 +17,9 @@ namespace BOEmbeddingService.Services
 	{
         private readonly IAppSettings _appSettings;
 		private readonly ILoggerService _loggerService;
-		OpenAIService openAIService = new OpenAIServiceBuilder().Build();
+		private readonly IOpenAIService _openAIService;
 		private readonly List<string> files = new List<string>();
         private readonly Uri gitRepo;
-        private readonly string openAiEndpoint;
-        private readonly string openAiEmbeddingModelName;
-        private readonly ApiKeyCredential openAiKey;
         private readonly string targetDir;
 
 
@@ -30,19 +27,16 @@ namespace BOEmbeddingService.Services
         private readonly IGenerateServiceDescription _generateServiceDescription;
 
 		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings,
-			ILoggerService loggerService, IGenerateServiceDescription generateServiceDescription)
+			ILoggerService loggerService,IOpenAIService openAIService, IGenerateServiceDescription generateServiceDescription)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
 			_loggerService = loggerService;
 			_generateServiceDescription = generateServiceDescription;
-
+			_openAIService = openAIService;
 
             // Assign Values From AppConfig
             gitRepo = new Uri(_appSettings.gitRepo);
-            openAiEndpoint = _appSettings.openAiEndpoint;
-            openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
-            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
             targetDir = Path.GetDirectoryName(_appSettings.targetDir);
         }
 		public async Task GenerateInterfaceSummary()
@@ -61,7 +55,7 @@ namespace BOEmbeddingService.Services
 
 					var boName = fi.Directory.Name;//Path.GetFileName(boRoot/*boRoot.Path*/);
 					var serviceName = $"ERP.BO.{boName}Svc";
-					var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", openAIService.Model.DeploymentName, serviceName + ".json");
+					var destinationFile = Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", _openAIService.Model.DeploymentName, serviceName + ".json");
 					Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
 
 					if (Path.Exists(destinationFile))
@@ -97,12 +91,12 @@ namespace BOEmbeddingService.Services
 					}
 					else
 					{
-						contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, openAIService.Model);
+						contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, _openAIService.Model);
 						await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
 					}
 
 					// generate description with openAI
-					var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, openAIService.Model);
+					var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, _openAIService.Model);
 					if (description == null)
 					{
 						// BO failed to process :(
@@ -148,11 +142,7 @@ namespace BOEmbeddingService.Services
 		
 		{{string.Join("\r\n", implementationFiles.Select(txt => $"############ {txt.Key} ##########\r\n{txt.Value}\r\n############ END {txt.Key} ###########\r\n"))}}
 		""";
-			var options = new AzureOpenAIClientOptions();
-			options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
-			options.NetworkTimeout = TimeSpan.FromMinutes(10);
-			OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
-
+			
 			var interfaceSyntax = CSharpSyntaxTree.ParseText(interfaceFileContents);
 			var methods = interfaceSyntax.GetCompilationUnitRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().SelectMany(i => i.DescendantNodes().OfType<MethodDeclarationSyntax>()
 				.Where(decl => decl.Body is null).Select(x => x.WithBody(null).WithLeadingTrivia(null).WithTrailingTrivia(null).WithAdditionalAnnotations().WithAttributeLists(new SyntaxList<AttributeListSyntax>()).GetText()))
@@ -174,19 +164,19 @@ namespace BOEmbeddingService.Services
 						})
 				};
 
-				var aiClient = openAiClient.GetChatClient(model.DeploymentName);
-				var completion = await aiClient.CompleteChatAsync(new ChatMessage[] {
-			ChatMessage.CreateSystemMessage(systemPrompt),
-            //ChatMessage.CreateSystemMessage("Json. Am I able to connect My AI services"),
-            ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
-            //ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize("Json. Give me some random data.")),
-        },
-				new ChatCompletionOptions
-				{
-					ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
-					Temperature = 0.0f,
-					//MaxTokens = 16_000
-				});
+				var completion = await _openAIService.CompleteChatAsync(
+					new ChatMessage[] 
+					{
+						ChatMessage.CreateSystemMessage(systemPrompt),
+				        ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
+					},
+					new ChatCompletionOptions
+					{
+						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+						Temperature = 0.0f,
+						//MaxTokens = 16_000
+					}
+				);
 
 				var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
 				response.AddRange(responseJson["methods"].AsArray()

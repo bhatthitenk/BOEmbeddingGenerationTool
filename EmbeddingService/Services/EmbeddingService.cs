@@ -16,9 +16,6 @@ namespace BOEmbeddingService.Services
     {
         private readonly IAppSettings _appSettings;
         private readonly ILoggerService _loggerService;
-        
-        private readonly string openAiEndpoint;
-        private readonly ApiKeyCredential openAiKey;
 
         //AIModelDefinition gpt_4o_mini = new("gpt-4o-mini", 0.000165m / 1000, 0.00066m / 1000);
         //AIModelDefinition gpt_4o = new("gpt-4o", 0.00275m / 1000, 0.011m / 1000);
@@ -28,8 +25,6 @@ namespace BOEmbeddingService.Services
 		private readonly IGenerateInterfaceSummaryService _generateInterfaceSummaryService;
 		private readonly IGenerateQuestionsService _generateQuestionsService;
         private readonly IGenerateServiceDescription _generateServiceDescription;
-
-        OpenAIService openAIService = new OpenAIServiceBuilder().Build();
 
 		public EmbeddingService(ICommonService commonService,
 			ICompressMethodsService compressMethodsService,
@@ -45,9 +40,6 @@ namespace BOEmbeddingService.Services
 			_generateQuestionsService = generateQuestionsService;
             _generateServiceDescription = generateServiceDescription;
 
-            //Setting up values from AppSetting
-            openAiEndpoint = _appSettings.openAiEndpoint;
-            openAiKey = new ApiKeyCredential(_appSettings.openAiKey);
         }
 
 		public async Task EmbeddedBOObjects()
