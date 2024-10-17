@@ -9,23 +9,27 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
+using Microsoft.CodeAnalysis;
+using System.Drawing.Printing;
 namespace BOEmbeddingService.Services
 {
     public class GenerateServiceDescriptionService : IGenerateServiceDescription
     {
         private readonly ICommonService _commonService;
 		private readonly IOpenAIService _openAIService;
+		private readonly IAppSettings _appSettings;
 
-        public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService)
+        public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService, IAppSettings appSettings)
 		{
             _commonService = commonService;
 			_openAIService = openAIService;
+            _appSettings = appSettings;
         }
         public async Task<BusinessObjectDescription> GenerateServiceDescriptionAsync(string serviceName, Dictionary<string, string> interfaceDefinition, IEnumerable<CodeFile> codeFiles, AIModelDefinition model)
         {
 
            // OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey);
-            var prompt = $$$"""
+            var systemPrompt = $$$"""
 		# Instructions
 		You are an intelligent coding assistant tasked with analysing source code for Epicor Kinetic business object (service) and generating description of its functionality.
 		To formulate your response, only use supplied information in the instructions as well as data sent by user. Do not use any additional sources or knowledge beyond this.
@@ -55,11 +59,7 @@ namespace BOEmbeddingService.Services
 		* description  full description
 		""";
 
-            // query Open AI for answer
-            var completions = await _openAIService.CompleteChatAsync(new ChatMessage[]
-            {
-        new SystemChatMessage(prompt),
-        new UserChatMessage($$$"""
+			var userPrompt = $$$"""
 			## Interface
 			```json
 			{{{JsonSerializer.Serialize(interfaceDefinition)}}}
@@ -73,7 +73,12 @@ namespace BOEmbeddingService.Services
 				{{c.Content}}
 				```	
 				""")}}}
-			""")
+			""";
+            // query Open AI for answer
+            var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
+            {
+        new SystemChatMessage(systemPrompt),
+        new UserChatMessage(userPrompt)
             }, new ChatCompletionOptions
             {
                 Temperature = 0.0f,
@@ -82,7 +87,27 @@ namespace BOEmbeddingService.Services
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
             });
 
-            var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completions.Value.Content.Last().Text);
+			string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "SummaryDescription");
+
+			if(!Path.Exists(serviceDescFilePath))
+			{
+				Directory.CreateDirectory(serviceDescFilePath);
+			}
+
+            WriteToFileModel writeToFileModel = new WriteToFileModel
+            {
+                ModelName = model.DeploymentName,
+                InputTokenCount = completion.Value.Usage.InputTokenCount,
+                OutputTokenCount = completion.Value.Usage.OutputTokenCount,
+                TotalTokenCount = completion.Value.Usage.TotalTokenCount,
+                FilePath = Path.Combine(serviceDescFilePath, $"{serviceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
+                Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
+                Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
+            };
+            await _commonService.WriteToFile(writeToFileModel);
+
+
+            var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completion.Value.Content.Last().Text);
             result.Name = serviceName;
 
             return result;

@@ -50,7 +50,7 @@ namespace BOEmbeddingService.Services
 					var compressedCodeFile = Path.Combine(codeFileTargetDir, boName, fi.Name./*Path.*/TrimStart('/', '\\'));
 					Directory.CreateDirectory(Path.GetDirectoryName(compressedCodeFile));
 
-                    Console.WriteLine($"{DateTime.Now}: Process Starts: {compressedCodeFile}");
+                    Console.WriteLine($"{DateTime.Now}: Compression Starts: {compressedCodeFile}");
                     // main code compression
                     if (File.Exists(compressedCodeFile))
 					{
@@ -64,13 +64,20 @@ namespace BOEmbeddingService.Services
 							StreamReader mainFileReader = new(mainCodeFile);
 							var mainContent = await mainFileReader.ReadToEndAsync();
 
-                            var compressedRequestResponseFolder = Path.Combine(Path.GetDirectoryName(_appSettings.targetDir), "CompressedRequestResponse");
+                            var compressedRequestResponseFolder = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "Compressed");
                             if (!Path.Exists(compressedRequestResponseFolder))
                             {
                                 Directory.CreateDirectory(compressedRequestResponseFolder);
                             }
-
-                            var compressed = await CompressCodeFileAsync(Path.Combine(Path.GetDirectoryName(_appSettings.targetDir), "CompressedRequestResponse"), fi.Name./*Path.*/TrimStart('/', '\\'), mainContent, boName, 1, _openAIService.Model);
+							string compressed;
+							if (_appSettings.SkipCompression && mainFileReader.BaseStream.Length > _appSettings.SkipCompressionFileSizeInBytes)
+							{
+								compressed = mainContent;
+							}
+							else
+							{
+								compressed = await CompressCodeFileAsync(compressedRequestResponseFolder, fi.Name./*Path.*/TrimStart('/', '\\'), mainContent, boName, 1, _openAIService.Model);
+							}
                             //compressed.DumpTell();
                             await File.WriteAllTextAsync(compressedCodeFile, compressed);
 							aiContextFiles.Add(new CodeFile { Content = compressed, Filename = Path.GetFileName(mainCodeFile) });
@@ -80,7 +87,7 @@ namespace BOEmbeddingService.Services
 							Console.WriteLine(ex.ToString());
 						}
 					}
-                    Console.WriteLine($"{DateTime.Now}: Process Ends: {compressedCodeFile}");
+                    Console.WriteLine($"{DateTime.Now}: Compression Ends: {compressedCodeFile}");
                 }
 			}
 			catch (Exception ex)

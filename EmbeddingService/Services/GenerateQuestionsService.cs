@@ -36,8 +36,11 @@ namespace BOEmbeddingService.Services
                 var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
 
 
+                Console.WriteLine($"{DateTime.Now}: Generate Question Starts: {descriptionFile}");
                 var questions = await GenerateQuestions(description, _openAIService.Model, filenameWithoutExtension);
                 await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
+
+                Console.WriteLine($"{DateTime.Now}: Generate Question Ends: {descriptionFile}");
             }
         }
 

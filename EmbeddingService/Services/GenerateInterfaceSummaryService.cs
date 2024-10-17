@@ -85,18 +85,24 @@ namespace BOEmbeddingService.Services
 					var contractSummaryFile = Path.Combine(contractDefinitionTargetDir, boName, Path.ChangeExtension(contractFile.Name, ".contract.json"));
 					Directory.CreateDirectory(Path.GetDirectoryName(contractSummaryFile));
 					Dictionary<string, string> contractSummary = new();
-					if (File.Exists(contractSummaryFile))
+
+                    Console.WriteLine($"{DateTime.Now}: Interface Summary Starts: {contractSummaryFile}");
+                    if (File.Exists(contractSummaryFile))
 					{
 						contractSummary = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(contractSummaryFile));
 					}
 					else
 					{
-						contractSummary = await GenerateInterfaceImplementationSummary(content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, _openAIService.Model);
+						string summaryFileName = string.Join(boName, Path.GetFileNameWithoutExtension(contractFile.Name));
+
+                        contractSummary = await GenerateInterfaceImplementationSummary(summaryFileName, content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, _openAIService.Model);
 						await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
 					}
+                    Console.WriteLine($"{DateTime.Now}: Interface Summary Starts: {contractSummaryFile}");
 
-					// generate description with openAI
-					var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, _openAIService.Model);
+                    Console.WriteLine($"{DateTime.Now}: Service Description Ends: {contractSummaryFile}");
+                    // generate description with openAI
+                    var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, _openAIService.Model);
 					if (description == null)
 					{
 						// BO failed to process :(
@@ -108,9 +114,9 @@ namespace BOEmbeddingService.Services
 					//description.DumpTell();
 
 					await File.WriteAllTextAsync(destinationFile, System.Text.Json.JsonSerializer.Serialize(description, options: new JsonSerializerOptions { WriteIndented = true }));
-
-					//break; // stop iterating during testing
-				}
+                    Console.WriteLine($"{DateTime.Now}: Service Description Ends: {contractSummaryFile}");
+                    //break; // stop iterating during testing
+                }
 			}
 			catch (Exception ex)
 			{
@@ -118,7 +124,7 @@ namespace BOEmbeddingService.Services
 			}
 		}
 
-		public async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
+		private async Task<Dictionary<string, string>> GenerateInterfaceImplementationSummary(string summaryFileName, string interfaceFileContents, Dictionary<string, string> implementationFiles, string boName, AIModelDefinition model)
 		{
 			string systemPrompt = $$"""
 		You are C# code interpreter for Epicor Kinetic ERP system. When user supplies you with interface file and summary of method implementations,
@@ -164,11 +170,13 @@ namespace BOEmbeddingService.Services
 						})
 				};
 
-				var completion = await _openAIService.CompleteChatAsync(
+				var userPrompt = System.Text.Json.JsonSerializer.Serialize(userMessageData);
+
+                var completion = await _openAIService.CompleteChatAsync(
 					new ChatMessage[] 
 					{
 						ChatMessage.CreateSystemMessage(systemPrompt),
-				        ChatMessage.CreateUserMessage(System.Text.Json.JsonSerializer.Serialize(userMessageData)),
+				        ChatMessage.CreateUserMessage(),
 					},
 					new ChatCompletionOptions
 					{
@@ -178,7 +186,24 @@ namespace BOEmbeddingService.Services
 					}
 				);
 
-				var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
+                string interfaceSummaryPath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "InterfaceImplementationSummary");
+                if (!Path.Exists(interfaceSummaryPath))
+                {
+                    Directory.CreateDirectory(interfaceSummaryPath);
+                }
+                WriteToFileModel writeToFileModel = new WriteToFileModel
+                {
+                    ModelName = model.DeploymentName,
+                    InputTokenCount = completion.Value.Usage.InputTokenCount,
+                    OutputTokenCount = completion.Value.Usage.OutputTokenCount,
+                    TotalTokenCount = completion.Value.Usage.TotalTokenCount,
+                    FilePath = Path.Combine(interfaceSummaryPath, $"{summaryFileName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
+                    Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
+                    Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
+                };
+                await _commonService.WriteToFile(writeToFileModel);
+
+                var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
 				response.AddRange(responseJson["methods"].AsArray()
 					.Select(node => new { declaration = node["declaration"]?.AsValue().GetValue<string>(), summary = node["summary"]?.AsValue().GetValue<string>() })
 					.ToDictionary(x => x.declaration, x => x.summary));

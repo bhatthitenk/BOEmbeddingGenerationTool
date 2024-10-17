@@ -12,5 +12,7 @@ namespace BOEmbeddingService
         public string targetDir { get; set; }
         public string BOObjectsLocation { get; set; }
         public string BOContractsLocation { get; set; }
+        public bool SkipCompression { get; set; }
+        public int SkipCompressionFileSizeInBytes {  get; set; }
     }
 }
