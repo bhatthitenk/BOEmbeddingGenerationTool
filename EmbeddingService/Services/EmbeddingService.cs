@@ -68,14 +68,14 @@ namespace BOEmbeddingService.Services
                 //GeneraatContract
                 Console.WriteLine("");
                 Console.WriteLine("##############################################################");
-                Console.WriteLine("         Compression Summary Generation Starts                ");
+                Console.WriteLine("         Interface Summary Generation Starts                ");
                 Console.WriteLine("##############################################################");
                 
                 await _generateInterfaceSummaryService.GenerateInterfaceSummary();
 
                 Console.WriteLine("");
                 Console.WriteLine("##############################################################");
-                Console.WriteLine("         Compression Summary Generation Ends                  ");
+                Console.WriteLine("         Interface Summary Generation Ends                  ");
                 Console.WriteLine("##############################################################");
 
                 //Generate Questions

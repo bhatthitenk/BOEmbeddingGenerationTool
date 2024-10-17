@@ -98,9 +98,9 @@ namespace BOEmbeddingService.Services
                         contractSummary = await GenerateInterfaceImplementationSummary(summaryFileName, content, aiContextFiles.ToDictionary(x => x.Filename, x => x.Content), boName, _openAIService.Model);
 						await File.WriteAllTextAsync(contractSummaryFile, System.Text.Json.JsonSerializer.Serialize(contractSummary, new JsonSerializerOptions { WriteIndented = true }));
 					}
-                    Console.WriteLine($"{DateTime.Now}: Interface Summary Starts: {contractSummaryFile}");
+                    Console.WriteLine($"{DateTime.Now}: Interface Summary Ends: {contractSummaryFile}");
 
-                    Console.WriteLine($"{DateTime.Now}: Service Description Ends: {contractSummaryFile}");
+                    Console.WriteLine($"{DateTime.Now}: Service Description Starts: {contractSummaryFile}");
                     // generate description with openAI
                     var description = await _generateServiceDescription.GenerateServiceDescriptionAsync(serviceName, contractSummary, aiContextFiles, _openAIService.Model);
 					if (description == null)
