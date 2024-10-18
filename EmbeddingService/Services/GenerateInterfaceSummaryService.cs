@@ -1,19 +1,16 @@
-﻿using Azure.AI.OpenAI;
-using BOEmbeddingService.Interfaces;
+﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
-using OpenAI;
 using OpenAI.Chat;
-using System.ClientModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-    public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
+	public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
         private readonly IAppSettings _appSettings;
 		private readonly ILoggerService _loggerService;
@@ -25,20 +22,24 @@ namespace BOEmbeddingService.Services
 
         private readonly ICommonService _commonService;
         private readonly IGenerateServiceDescription _generateServiceDescription;
+		private readonly IMongoDbService _mongoDbService;
 
 		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings,
-			ILoggerService loggerService,IOpenAIService openAIService, IGenerateServiceDescription generateServiceDescription)
+			ILoggerService loggerService,IOpenAIService openAIService, IGenerateServiceDescription generateServiceDescription,
+			IMongoDbService mongoDbService)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
 			_loggerService = loggerService;
 			_generateServiceDescription = generateServiceDescription;
 			_openAIService = openAIService;
+			_mongoDbService = mongoDbService;
 
             // Assign Values From AppConfig
             gitRepo = new Uri(_appSettings.gitRepo);
             targetDir = Path.GetDirectoryName(_appSettings.targetDir);
         }
+
 		public async Task GenerateInterfaceSummary()
 		{
 			try
@@ -202,8 +203,9 @@ namespace BOEmbeddingService.Services
                     Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
                 };
                 await _commonService.WriteToFile(writeToFileModel);
+				await _mongoDbService.InsertDocumentAsync(writeToFileModel);
 
-                var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
+				var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
 				response.AddRange(responseJson["methods"].AsArray()
 					.Select(node => new { declaration = node["declaration"]?.AsValue().GetValue<string>(), summary = node["summary"]?.AsValue().GetValue<string>() })
 					.ToDictionary(x => x.declaration, x => x.summary));

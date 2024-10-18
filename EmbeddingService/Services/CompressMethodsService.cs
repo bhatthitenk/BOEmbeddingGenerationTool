@@ -13,11 +13,14 @@ namespace BOEmbeddingService.Services
         private readonly IAppSettings _appSettings;
         private readonly ICommonService _commonService;
         private readonly IOpenAIService _openAIService;
-        public CompressMethodsService(ICommonService commonService, IAppSettings appSettings, IOpenAIService openAIService)
+        private readonly IMongoDbService _mongoDbService;
+
+		public CompressMethodsService(ICommonService commonService, IAppSettings appSettings, IOpenAIService openAIService, IMongoDbService mongoDbService)
 		{
 			_commonService = commonService;
 			_appSettings = appSettings;	
 			_openAIService = openAIService;
+			_mongoDbService = mongoDbService;
 		}
 
 		public async Task GetCompressMethods()
@@ -256,6 +259,7 @@ namespace BOEmbeddingService.Services
 					{
 						Temperature = 0.0f,
 						//MaxTokens = 16000,
+						//MaxOutputTokenCount = 16000,
 						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
 					});
 
@@ -278,6 +282,7 @@ namespace BOEmbeddingService.Services
 					Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
 				};
 				await _commonService.WriteToFile(writeToFileModel);
+				await _mongoDbService.InsertDocumentAsync(writeToFileModel);
 
 				return jsonData.GroupBy(x => x.Name).ToDictionary(x => x.Key, y => y.Last().Summary);
 			}

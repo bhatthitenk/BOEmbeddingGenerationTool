@@ -4,8 +4,8 @@ namespace BOEmbeddingService.Interfaces
 {
 	public interface IMongoDbService
 	{
-		IMongoCollection<T> GetCollection<T>(string collectionName);
+		IMongoCollection<T> GetCollection<T>();
 
-		Task InsertDocumentAsync<T>(string collectionName, T document);
+		Task InsertDocumentAsync<T>(T document);
 	}
 }

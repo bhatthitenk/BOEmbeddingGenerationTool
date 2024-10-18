@@ -1,15 +1,12 @@
-﻿using Azure.AI.OpenAI;
-using BOEmbeddingService.Interfaces;
+﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using OpenAI;
 using OpenAI.Chat;
-using System.ClientModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-    public class GenerateQuestionsService : IGenerateQuestionsService
+	public class GenerateQuestionsService : IGenerateQuestionsService
 	{
         private readonly IAppSettings _appSettings;
 		private readonly IOpenAIService _openAIService;

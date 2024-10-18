@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BOEmbeddingService.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,5 +19,6 @@ namespace BOEmbeddingService.Interfaces
         public string BOContractsLocation { get; set; }
         public bool SkipCompression { get; set; }
         public int SkipCompressionFileSizeInBytes { get; set; }
-    }
+        public MongoDbSettings mongoDbSettings { get; set; }
+	}
 }
