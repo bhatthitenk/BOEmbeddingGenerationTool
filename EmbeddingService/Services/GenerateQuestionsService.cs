@@ -74,8 +74,9 @@ namespace BOEmbeddingService.Services
 			}, new ChatCompletionOptions
 			{
 				Temperature = 0.0f,
-				//MaxTokens = 8000,
-				ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+                //MaxTokens = 8000,
+                MaxOutputTokenCount = 8000,
+                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
 			});
 
 			var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());

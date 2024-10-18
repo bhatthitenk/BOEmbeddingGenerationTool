@@ -182,8 +182,9 @@ namespace BOEmbeddingService.Services
 					{
 						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
 						Temperature = 0.0f,
-						//MaxTokens = 16_000
-					}
+                        //MaxTokens = 16_000
+                        MaxOutputTokenCount = 16_000,
+                    }
 				);
 
                 string interfaceSummaryPath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "InterfaceImplementationSummary");
