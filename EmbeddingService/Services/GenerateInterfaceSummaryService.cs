@@ -1,19 +1,16 @@
-﻿using Azure.AI.OpenAI;
-using BOEmbeddingService.Interfaces;
+﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
-using OpenAI;
 using OpenAI.Chat;
-using System.ClientModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-    public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
+	public class GenerateInterfaceSummaryService : IGenerateInterfaceSummaryService
 	{
         private readonly IAppSettings _appSettings;
 		private readonly ILoggerService _loggerService;
@@ -39,6 +36,7 @@ namespace BOEmbeddingService.Services
             gitRepo = new Uri(_appSettings.gitRepo);
             targetDir = Path.GetDirectoryName(_appSettings.targetDir);
         }
+
 		public async Task GenerateInterfaceSummary()
 		{
 			try
@@ -202,9 +200,9 @@ namespace BOEmbeddingService.Services
                     Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
                     Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
                 };
-                await _commonService.WriteToFile(writeToFileModel);
+                await _commonService.WriteToFileAndDB(writeToFileModel);
 
-                var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
+				var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
 				response.AddRange(responseJson["methods"].AsArray()
 					.Select(node => new { declaration = node["declaration"]?.AsValue().GetValue<string>(), summary = node["summary"]?.AsValue().GetValue<string>() })
 					.ToDictionary(x => x.declaration, x => x.summary));

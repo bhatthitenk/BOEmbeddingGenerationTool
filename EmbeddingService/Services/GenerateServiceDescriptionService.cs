@@ -1,31 +1,23 @@
-﻿using Azure.AI.OpenAI;
-using BOEmbeddingService.Interfaces;
+﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using OpenAI.Chat;
-using OpenAI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Text.Json;
 using Microsoft.CodeAnalysis;
-using System.Drawing.Printing;
+using OpenAI.Chat;
+using System.Text.Json;
 namespace BOEmbeddingService.Services
 {
-    public class GenerateServiceDescriptionService : IGenerateServiceDescription
+	public class GenerateServiceDescriptionService : IGenerateServiceDescription
     {
         private readonly ICommonService _commonService;
 		private readonly IOpenAIService _openAIService;
 		private readonly IAppSettings _appSettings;
 
-        public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService, IAppSettings appSettings)
+		public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService, IAppSettings appSettings)
 		{
             _commonService = commonService;
 			_openAIService = openAIService;
             _appSettings = appSettings;
-        }
-        public async Task<BusinessObjectDescription> GenerateServiceDescriptionAsync(string serviceName, Dictionary<string, string> interfaceDefinition, IEnumerable<CodeFile> codeFiles, AIModelDefinition model)
+		}
+		public async Task<BusinessObjectDescription> GenerateServiceDescriptionAsync(string serviceName, Dictionary<string, string> interfaceDefinition, IEnumerable<CodeFile> codeFiles, AIModelDefinition model)
         {
 
            // OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey);
@@ -105,10 +97,9 @@ namespace BOEmbeddingService.Services
                 Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
                 Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
             };
-            await _commonService.WriteToFile(writeToFileModel);
+            await _commonService.WriteToFileAndDB(writeToFileModel);
 
-
-            var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completion.Value.Content.Last().Text);
+			var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completion.Value.Content.Last().Text);
             result.Name = serviceName;
 
             return result;

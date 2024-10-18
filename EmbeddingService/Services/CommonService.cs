@@ -5,6 +5,13 @@ namespace BOEmbeddingService.Services
 {
     public class CommonService : ICommonService
 	{
+		private readonly IMongoDbService _mongoDbService;
+
+		public CommonService(IMongoDbService mongoDbService)
+		{
+			_mongoDbService = mongoDbService;
+		}
+
 		public async Task<string[]> GetFiles(string path)
 		{
             List<string> files = new List<string>();
@@ -31,7 +38,7 @@ namespace BOEmbeddingService.Services
 			return files.ToArray();
 		}
 
-		public async Task WriteToFile(WriteToFileModel model)
+		public async Task WriteToFileAndDB(WriteToFileModel model)
         {
 			var fileContent = $$$"""
 								#############################################################################
@@ -45,6 +52,7 @@ namespace BOEmbeddingService.Services
 								#############################################################################
 								""";
             File.AppendAllText(model.FilePath + ".txt", fileContent);
+			await _mongoDbService.InsertDocumentAsync(model);
 		}
 	}
 }

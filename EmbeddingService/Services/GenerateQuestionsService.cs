@@ -1,24 +1,23 @@
-﻿using Azure.AI.OpenAI;
-using BOEmbeddingService.Interfaces;
+﻿using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Models;
-using OpenAI;
 using OpenAI.Chat;
-using System.ClientModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BOEmbeddingService.Services
 {
-    public class GenerateQuestionsService : IGenerateQuestionsService
+	public class GenerateQuestionsService : IGenerateQuestionsService
 	{
         private readonly IAppSettings _appSettings;
 		private readonly IOpenAIService _openAIService;
-      
+        private readonly ICommonService _commonService;
 
-        public GenerateQuestionsService(IAppSettings appSettings, IOpenAIService openAIService)
+
+		public GenerateQuestionsService(IAppSettings appSettings, IOpenAIService openAIService, ICommonService commonService)
 		{
             _appSettings = appSettings;
             _openAIService = openAIService;
+			_commonService = commonService;
         }
 		public async Task GenerateQuestions()
 		{
@@ -78,6 +77,25 @@ namespace BOEmbeddingService.Services
                 MaxOutputTokenCount = 8000,
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
 			});
+
+			string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "Questions");
+
+			if (!Path.Exists(serviceDescFilePath))
+			{
+				Directory.CreateDirectory(serviceDescFilePath);
+			}
+
+			WriteToFileModel writeToFileModel = new WriteToFileModel
+			{
+				ModelName = model.DeploymentName,
+				InputTokenCount = completion.Value.Usage.InputTokenCount,
+				OutputTokenCount = completion.Value.Usage.OutputTokenCount,
+				TotalTokenCount = completion.Value.Usage.TotalTokenCount,
+				FilePath = Path.Combine(serviceDescFilePath, $"{serviceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
+				Prompts = new Prompts { SystemPrompt = prompt, UserPrompt = description.Description },
+				Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
+			};
+			await _commonService.WriteToFileAndDB(writeToFileModel);
 
 			var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
