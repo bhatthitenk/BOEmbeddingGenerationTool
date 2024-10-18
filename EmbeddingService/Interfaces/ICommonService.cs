@@ -10,7 +10,7 @@ namespace BOEmbeddingService.Interfaces
 	public interface ICommonService
 	{
 		Task<string[]> GetFiles(string path);
-		Task WriteToFile(WriteToFileModel model);
+		Task WriteToFileAndDB(WriteToFileModel model);
 
     }
 }

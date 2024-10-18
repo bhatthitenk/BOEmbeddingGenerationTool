@@ -10,15 +10,12 @@ namespace BOEmbeddingService.Services
         private readonly ICommonService _commonService;
 		private readonly IOpenAIService _openAIService;
 		private readonly IAppSettings _appSettings;
-		private readonly IMongoDbService _mongoDbService;
 
-		public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService, IAppSettings appSettings,
-			IMongoDbService mongoDbService)
+		public GenerateServiceDescriptionService(ICommonService commonService, IOpenAIService openAIService, IAppSettings appSettings)
 		{
             _commonService = commonService;
 			_openAIService = openAIService;
             _appSettings = appSettings;
-			_mongoDbService = mongoDbService;
 		}
 		public async Task<BusinessObjectDescription> GenerateServiceDescriptionAsync(string serviceName, Dictionary<string, string> interfaceDefinition, IEnumerable<CodeFile> codeFiles, AIModelDefinition model)
         {
@@ -99,9 +96,7 @@ namespace BOEmbeddingService.Services
                 Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
                 Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
             };
-            await _commonService.WriteToFile(writeToFileModel);
-			await _mongoDbService.InsertDocumentAsync(writeToFileModel);
-
+            await _commonService.WriteToFileAndDB(writeToFileModel);
 
 			var result = System.Text.Json.JsonSerializer.Deserialize<BusinessObjectDescription>(completion.Value.Content.Last().Text);
             result.Name = serviceName;

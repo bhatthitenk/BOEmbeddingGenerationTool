@@ -22,18 +22,15 @@ namespace BOEmbeddingService.Services
 
         private readonly ICommonService _commonService;
         private readonly IGenerateServiceDescription _generateServiceDescription;
-		private readonly IMongoDbService _mongoDbService;
 
 		public GenerateInterfaceSummaryService(ICommonService commonService, IAppSettings appSettings,
-			ILoggerService loggerService,IOpenAIService openAIService, IGenerateServiceDescription generateServiceDescription,
-			IMongoDbService mongoDbService)
+			ILoggerService loggerService,IOpenAIService openAIService, IGenerateServiceDescription generateServiceDescription)
 		{
             _appSettings = appSettings;
             _commonService = commonService;
 			_loggerService = loggerService;
 			_generateServiceDescription = generateServiceDescription;
 			_openAIService = openAIService;
-			_mongoDbService = mongoDbService;
 
             // Assign Values From AppConfig
             gitRepo = new Uri(_appSettings.gitRepo);
@@ -202,8 +199,7 @@ namespace BOEmbeddingService.Services
                     Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
                     Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
                 };
-                await _commonService.WriteToFile(writeToFileModel);
-				await _mongoDbService.InsertDocumentAsync(writeToFileModel);
+                await _commonService.WriteToFileAndDB(writeToFileModel);
 
 				var responseJson = JsonNode.Parse(completion.Value.Content.Last().Text);
 				response.AddRange(responseJson["methods"].AsArray()
