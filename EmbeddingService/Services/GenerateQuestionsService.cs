@@ -73,8 +73,9 @@ namespace BOEmbeddingService.Services
 			}, new ChatCompletionOptions
 			{
 				Temperature = 0.0f,
-				//MaxTokens = 8000,
-				ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+                //MaxTokens = 8000,
+                MaxOutputTokenCount = 8000,
+                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
 			});
 
 			string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "Questions");

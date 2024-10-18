@@ -75,6 +75,7 @@ namespace BOEmbeddingService.Services
             {
                 Temperature = 0.0f,
                 //MaxTokens = 3000,
+                MaxOutputTokenCount = 3000,
                 //NumberOfResponses = 1,
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
             });
