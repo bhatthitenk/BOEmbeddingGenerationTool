@@ -6,10 +6,12 @@ namespace BOEmbeddingService.Services
     public class CommonService : ICommonService
 	{
 		private readonly IMongoDbService _mongoDbService;
+		private readonly ILoggerService _loggerService;
 
-		public CommonService(IMongoDbService mongoDbService)
+		public CommonService(IMongoDbService mongoDbService, ILoggerService loggerService)
 		{
 			_mongoDbService = mongoDbService;
+			_loggerService = loggerService;
 		}
 
 		public async Task<string[]> GetFiles(string path)
@@ -29,14 +31,16 @@ namespace BOEmbeddingService.Services
 						files.AddRange(subDirFiles);
 					}
 				}
-			}
-			catch (System.Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-			}
+			
 
-			return files.ToArray();
-		}
+				return files.ToArray();
+            }
+            catch (System.Exception ex)
+            {
+                _loggerService._logger.Error($"GetFiles | File: {path} | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
+                throw; // Re-throw the exception to be handled by the caller
+            }
+        }
 
 		public async Task WriteToFileAndDB(WriteToFileModel model)
         {

@@ -3,6 +3,7 @@ using BOEmbeddingService.Models;
 using OpenAI.Chat;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 
 namespace BOEmbeddingService.Services
 {
@@ -11,11 +12,13 @@ namespace BOEmbeddingService.Services
         private readonly IAppSettings _appSettings;
 		private readonly IOpenAIService _openAIService;
         private readonly ICommonService _commonService;
+		private readonly ILoggerService _loggerService;
+      
 
-
-		public GenerateQuestionsService(IAppSettings appSettings, IOpenAIService openAIService, ICommonService commonService)
+		public GenerateQuestionsService(IAppSettings appSettings, IOpenAIService openAIService, ICommonService commonService, ILoggerService loggerService)
 		{
             _appSettings = appSettings;
+			_loggerService = loggerService;
             _openAIService = openAIService;
 			_commonService = commonService;
         }
@@ -24,23 +27,30 @@ namespace BOEmbeddingService.Services
             // generate questions
             foreach (var descriptionFile in Directory.GetFiles(Path.Combine(_appSettings.targetDir, "BusinessObjectDescription", _openAIService.Model.DeploymentName), "*.json"))
             {
-                var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
+				try
+				{ 
+					var filenameWithoutExtension = Path.GetFileNameWithoutExtension(descriptionFile);
 
-                var questionFile = Path.Combine(_appSettings.targetDir, "Questions", filenameWithoutExtension + ".questions.json");
-                Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
-                if (File.Exists(questionFile))
-                    continue;
+					var questionFile = Path.Combine(_appSettings.targetDir, "Questions", filenameWithoutExtension + ".questions.json");
+					Directory.CreateDirectory(Path.GetDirectoryName(questionFile));
+					if (File.Exists(questionFile))
+						continue;
 
-                var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
-                var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
+					var descriptionJson = await File.ReadAllTextAsync(descriptionFile);
+					var description = JsonSerializer.Deserialize<BusinessObjectDescription>(descriptionJson);
 
 
-                Console.WriteLine($"{DateTime.Now}: Generate Question Starts: {descriptionFile}");
-                var questions = await GenerateQuestions(description, _openAIService.Model, filenameWithoutExtension);
-                await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
+					Console.WriteLine($"{DateTime.Now}: Generate Question Starts: {descriptionFile}");
+					var questions = await GenerateQuestions(description, _openAIService.Model, filenameWithoutExtension);
+					await File.WriteAllTextAsync(questionFile, JsonSerializer.Serialize(questions.Select(x => new { question = x.Item1, embedding = x.Item2 }), new JsonSerializerOptions { WriteIndented = true }));
 
-                Console.WriteLine($"{DateTime.Now}: Generate Question Ends: {descriptionFile}");
-            }
+					Console.WriteLine($"{DateTime.Now}: Generate Question Ends: {descriptionFile}");
+				}
+                catch (Exception ex)
+				{
+					_loggerService._logger.Error($"InterfaceSummary | File: {Path.GetFileName(descriptionFile) } | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
+				}
+        }
         }
 
 		/// <summary>
