@@ -15,7 +15,7 @@ namespace BOEmbeddingService.Services
 {
     public class OpenAIService : IOpenAIService
     {
-        
+        private readonly ILoggerService _loggerService;
         private readonly AIModelDefinition _modelDefinition;
         private readonly IAppSettings _appSettings;
         private string _openAiChatModelName;
@@ -23,10 +23,10 @@ namespace BOEmbeddingService.Services
         private int _retryCount = 2;
         private TimeSpan _networkTimeout = TimeSpan.FromMinutes(10);
         private AzureOpenAIClient _openAIClient;
-        public OpenAIService(IAppSettings appSettings)
+        public OpenAIService(IAppSettings appSettings, ILoggerService loggerService)
         {
             _appSettings = appSettings;
-
+            _loggerService = loggerService;
             //Setting up values from AppSetting
             _openAiChatModelName = _appSettings.openAiChatModelName;
             _openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
@@ -46,15 +46,31 @@ namespace BOEmbeddingService.Services
 
         public async Task<ClientResult<ChatCompletion>> CompleteChatAsync(IEnumerable<ChatMessage> messages, ChatCompletionOptions options)
         {
-            var chatClient = _openAIClient.GetChatClient(_openAiChatModelName);
-            return await chatClient.CompleteChatAsync(messages, options);
+            try
+            {
+                var chatClient = _openAIClient.GetChatClient(_openAiChatModelName);
+                return await chatClient.CompleteChatAsync(messages, options);
+            }
+            catch (Exception ex)
+            {
+                _loggerService._logger.Error($"CompleteChatAsync: {ex.Message} | Stack Trace: {ex.StackTrace}");
+                throw; // Re-throw the exception to be handled by the caller
+            }
         }
 
         public async Task<string[]> GenerateEmbeddingsAsync(IEnumerable<string> texts)
         {
-            var embeddingClient = _openAIClient.GetEmbeddingClient(_openAiEmbeddingModelName);
-            var response = await embeddingClient.GenerateEmbeddingsAsync(texts);
-            return response.Value.Select(x => x.Index.ToString()).ToArray();
+            try
+            {
+                var embeddingClient = _openAIClient.GetEmbeddingClient(_openAiEmbeddingModelName);
+                var response = await embeddingClient.GenerateEmbeddingsAsync(texts);
+                return response.Value.Select(x => x.Index.ToString()).ToArray();
+            }
+            catch (Exception ex)
+            {
+                _loggerService._logger.Error($"GenerateEmbeddingsAsync: {ex.Message} | Stack Trace: {ex.StackTrace}");
+                throw; // Re-throw the exception to be handled by the caller
+            }
         }
     }
 }

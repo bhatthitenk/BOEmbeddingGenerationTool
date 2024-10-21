@@ -4,7 +4,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OpenAI.Chat;
+using System.IO;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace BOEmbeddingService.Services
 {
@@ -13,12 +15,13 @@ namespace BOEmbeddingService.Services
         private readonly IAppSettings _appSettings;
         private readonly ICommonService _commonService;
         private readonly IOpenAIService _openAIService;
-
-		public CompressMethodsService(ICommonService commonService, IAppSettings appSettings, IOpenAIService openAIService)
+		private readonly ILoggerService _loggerService;
+		public CompressMethodsService(ICommonService commonService, IAppSettings appSettings, IOpenAIService openAIService, ILoggerService loggerService)
 		{
 			_commonService = commonService;
 			_appSettings = appSettings;	
 			_openAIService = openAIService;
+			_loggerService = loggerService;
 		}
 
 		public async Task GetCompressMethods()
@@ -85,16 +88,16 @@ namespace BOEmbeddingService.Services
 						}
 						catch (Exception ex)
 						{
-							Console.WriteLine(ex.ToString());
-						}
+                            _loggerService._logger.Error($"GetCompressMethods | File: {boName}/{fi.Name} | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
+                        }
 					}
                     Console.WriteLine($"{DateTime.Now}: Compression Ends: {compressedCodeFile}");
                 }
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
-			}
+                _loggerService._logger.Error($"GetCompressMethods | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
+            }
 		}
 
         private async Task<string> CompressCodeFileAsync(string filepath, string filename, string fullText, string className, int maxTokens, AIModelDefinition model)
@@ -251,13 +254,13 @@ namespace BOEmbeddingService.Services
 
 				var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
 					{
-			ChatMessage.CreateSystemMessage(systemPrompt),
-			ChatMessage.CreateUserMessage(userPrompt),
+						ChatMessage.CreateSystemMessage(systemPrompt),
+						ChatMessage.CreateUserMessage(userPrompt),
 					}, new ChatCompletionOptions
 					{
 						Temperature = 0.0f,
 						//MaxTokens = 16000,
-						MaxOutputTokenCount = 16000,
+						//MaxOutputTokenCount = 16_000,
 						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
 					});
 
@@ -285,9 +288,9 @@ namespace BOEmbeddingService.Services
 			}
 			catch(Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
-				return methods;
-			}
+                _loggerService._logger.Error($"GetCompressMethods | File: {filename} | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
+                throw; // Re-throw the exception to be handled by the caller
+            }
 		}
 	}
 }

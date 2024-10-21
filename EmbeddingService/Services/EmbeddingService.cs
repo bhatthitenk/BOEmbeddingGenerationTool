@@ -93,7 +93,7 @@ namespace BOEmbeddingService.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                _loggerService._logger.Error($"EmbeddedBOObjects | Message: {ex.Message} | Stack Trace: {ex.StackTrace}");
             }
         }
 
