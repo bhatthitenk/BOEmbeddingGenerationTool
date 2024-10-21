@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
+using Newtonsoft.Json;
 using OpenAI.Chat;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -44,7 +45,7 @@ namespace BOEmbeddingService.Services
 			{
 				var contractDefinitionTargetDir = Path.Combine(_appSettings.targetDir, "ContractSummaries");
 
-				var items = await _commonService.GetFiles(_appSettings.BOObjectsLocation);
+				var items = await _commonService.GetFiles(Path.Combine(_appSettings.targetDir, "CompressedCodeFiles"));
 				var contractFiles = await _commonService.GetFiles(_appSettings.BOContractsLocation);
 
 				// skip root folder
@@ -179,6 +180,16 @@ namespace BOEmbeddingService.Services
 				};
 
 				var userPrompt = System.Text.Json.JsonSerializer.Serialize(userMessageData);
+                ChatCompletionOptions chatCompletionOptions = new ChatCompletionOptions
+                {
+                    Temperature = 0.0f,
+                    //MaxTokens = 16_000
+                    MaxOutputTokenCount = 16_000,
+                    ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+                };
+
+                DateTime StartTime = DateTime.Now;
+                DateTime endTime = DateTime.Now;
 
                 var completion = await _openAIService.CompleteChatAsync(
 					new ChatMessage[] 
@@ -186,14 +197,9 @@ namespace BOEmbeddingService.Services
 						ChatMessage.CreateSystemMessage(systemPrompt),
 				        ChatMessage.CreateUserMessage(),
 					},
-					new ChatCompletionOptions
-					{
-						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
-						Temperature = 0.0f,
-                        //MaxTokens = 16_000
-                        MaxOutputTokenCount = 16_000,
-                    }
+					chatCompletionOptions
 				);
+                endTime = DateTime.Now;
 
                 string interfaceSummaryPath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "InterfaceImplementationSummary");
                 if (!Path.Exists(interfaceSummaryPath))
@@ -208,7 +214,11 @@ namespace BOEmbeddingService.Services
                     TotalTokenCount = completion.Value.Usage.TotalTokenCount,
                     FilePath = Path.Combine(interfaceSummaryPath, $"{summaryFileName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
                     Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
-                    Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
+                    StartTime = StartTime,
+                    EndTime = endTime,
+                    TimeTaken = (endTime - StartTime).TotalSeconds,
+                    chatCompletionOptions = chatCompletionOptions,
+                    Response = JsonConvert.SerializeObject(completion.Value)
                 };
                 await _commonService.WriteToFileAndDB(writeToFileModel);
 

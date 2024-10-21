@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OpenAI.Chat;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,6 +16,12 @@ namespace BOEmbeddingService.Models
         public string FilePath {  get; set; }
         public Prompts Prompts { get; set; }
         public string Response {  get; set; }
+        public bool IsForEmbeddings { get; set; }
+        public IEnumerable<string> texts { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public double TimeTaken { get; set; }
+        public ChatCompletionOptions chatCompletionOptions { get; set; }
     }
 
     public class Prompts
