@@ -17,16 +17,18 @@ namespace BOEmbeddingService.Services
     {
         private readonly ILoggerService _loggerService;
         private readonly AIModelDefinition _modelDefinition;
+        private readonly ICommonService _commonService;
         private readonly IAppSettings _appSettings;
         private string _openAiChatModelName;
         private string _openAiEmbeddingModelName;
         private int _retryCount = 2;
         private TimeSpan _networkTimeout = TimeSpan.FromMinutes(10);
         private AzureOpenAIClient _openAIClient;
-        public OpenAIService(IAppSettings appSettings, ILoggerService loggerService)
+        public OpenAIService(IAppSettings appSettings, ILoggerService loggerService, ICommonService commonService)
         {
             _appSettings = appSettings;
             _loggerService = loggerService;
+            _commonService = commonService;
             //Setting up values from AppSetting
             _openAiChatModelName = _appSettings.openAiChatModelName;
             _openAiEmbeddingModelName = _appSettings.openAiEmbeddingModelName;
@@ -58,12 +60,39 @@ namespace BOEmbeddingService.Services
             }
         }
 
-        public async Task<string[]> GenerateEmbeddingsAsync(IEnumerable<string> texts)
+        public async Task<string[]> GenerateEmbeddingsAsync(string ServiceName, IEnumerable<string> texts)
         {
             try
             {
+                DateTime StartTime = DateTime.Now;
+                DateTime endTime = DateTime.Now;
+
                 var embeddingClient = _openAIClient.GetEmbeddingClient(_openAiEmbeddingModelName);
                 var response = await embeddingClient.GenerateEmbeddingsAsync(texts);
+
+                endTime = DateTime.Now;
+
+                string questionEmbeddingsFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "QuestionEmbeddings");
+                if (!Path.Exists(questionEmbeddingsFilePath))
+                {
+                    Directory.CreateDirectory(questionEmbeddingsFilePath);
+                }
+
+
+                WriteToFileModel writeQuestionsEmbeddingsToFile = new WriteToFileModel
+                {
+                    ModelName = _openAiEmbeddingModelName,
+                    IsForEmbeddings = true,
+                    FilePath = Path.Combine(questionEmbeddingsFilePath, $"{ServiceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
+                    StartTime = StartTime,
+                    EndTime = endTime,
+                    TimeTaken = (endTime - StartTime).TotalSeconds,
+                    texts = texts,
+                    Response = Newtonsoft.Json.JsonConvert.SerializeObject(response.Value)
+                };
+                await _commonService.WriteToFileAndDB(writeQuestionsEmbeddingsToFile);
+
+
                 return response.Value.Select(x => x.Index.ToString()).ToArray();
             }
             catch (Exception ex)

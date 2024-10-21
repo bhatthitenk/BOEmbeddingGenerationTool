@@ -66,21 +66,30 @@ namespace BOEmbeddingService.Services
 				```	
 				""")}}}
 			""";
+			ChatCompletionOptions chatCompletionOptions = new ChatCompletionOptions
+			{
+				Temperature = 0.0f,
+				//MaxTokens = 3000,
+				MaxOutputTokenCount = 3000,
+				//NumberOfResponses = 1,
+				ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
+			};
+
+            DateTime StartTime = DateTime.Now;
+            DateTime endTime = DateTime.Now;
+
             // query Open AI for answer
             var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
             {
         new SystemChatMessage(systemPrompt),
         new UserChatMessage(userPrompt)
-            }, new ChatCompletionOptions
-            {
-                Temperature = 0.0f,
-                //MaxTokens = 3000,
-                MaxOutputTokenCount = 3000,
-                //NumberOfResponses = 1,
-                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
-            });
+            },
+			chatCompletionOptions
+            );
+            
+			endTime = DateTime.Now;
 
-			string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "SummaryDescription");
+            string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "SummaryDescription");
 
 			if(!Path.Exists(serviceDescFilePath))
 			{
@@ -95,7 +104,11 @@ namespace BOEmbeddingService.Services
                 TotalTokenCount = completion.Value.Usage.TotalTokenCount,
                 FilePath = Path.Combine(serviceDescFilePath, $"{serviceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
                 Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
-                Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
+                StartTime = StartTime,
+                EndTime = endTime,
+                TimeTaken = (endTime - StartTime).TotalSeconds,
+                chatCompletionOptions = chatCompletionOptions,
+                Response = JsonSerializer.Serialize(completion.Value)
             };
             await _commonService.WriteToFileAndDB(writeToFileModel);
 

@@ -71,28 +71,36 @@ namespace BOEmbeddingService.Services
 		Format your response as json with field "questions" containing an array of strings, ne per question generated.
 		""";
 
-			//var options = new AzureOpenAIClientOptions();
-			//options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
-			//options.NetworkTimeout = TimeSpan.FromMinutes(10);
-			//OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
+            //var options = new AzureOpenAIClientOptions();
+            //options.RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(2);
+            //options.NetworkTimeout = TimeSpan.FromMinutes(10);
+            //OpenAIClient openAiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), openAiKey, options);
 
-			var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
-			{
-				ChatMessage.CreateSystemMessage(prompt),
-				ChatMessage.CreateUserMessage(description.Description),
-			}, new ChatCompletionOptions
-			{
-				Temperature = 0.0f,
+            ChatCompletionOptions chatCompletionOptions = new ChatCompletionOptions
+            {
+                Temperature = 0.0f,
                 //MaxTokens = 8000,
                 MaxOutputTokenCount = 8000,
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
-			});
+            };
 
-			string serviceDescFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "Questions");
+            DateTime StartTime = DateTime.Now;
+            DateTime endTime = DateTime.Now;
 
-			if (!Path.Exists(serviceDescFilePath))
+            var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
 			{
-				Directory.CreateDirectory(serviceDescFilePath);
+				ChatMessage.CreateSystemMessage(prompt),
+				ChatMessage.CreateUserMessage(description.Description),
+			}, 
+			chatCompletionOptions
+			);
+            endTime = DateTime.Now;
+
+            string questionsFilePath = Path.Combine(_appSettings.targetDir, "PromptRequestResponse", "Questions");
+
+			if (!Path.Exists(questionsFilePath))
+			{
+				Directory.CreateDirectory(questionsFilePath);
 			}
 
 			WriteToFileModel writeToFileModel = new WriteToFileModel
@@ -101,15 +109,19 @@ namespace BOEmbeddingService.Services
 				InputTokenCount = completion.Value.Usage.InputTokenCount,
 				OutputTokenCount = completion.Value.Usage.OutputTokenCount,
 				TotalTokenCount = completion.Value.Usage.TotalTokenCount,
-				FilePath = Path.Combine(serviceDescFilePath, $"{serviceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
+				FilePath = Path.Combine(questionsFilePath, $"{serviceName}_{DateTime.Now.ToString("yyyyMMdd_H_mm_ss")}"),
 				Prompts = new Prompts { SystemPrompt = prompt, UserPrompt = description.Description },
-				Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
-			};
+                StartTime = StartTime,
+                EndTime = endTime,
+                TimeTaken = (endTime - StartTime).TotalSeconds,
+                chatCompletionOptions = chatCompletionOptions,
+                Response = JsonSerializer.Serialize(completion.Value)
+            };
 			await _commonService.WriteToFileAndDB(writeToFileModel);
 
 			var questions = JsonNode.Parse(completion.Value.Content.Last().Text)["questions"].AsArray().Select(x => x.AsValue().GetValue<string>());
 
-			var embeddings = await _openAIService.GenerateEmbeddingsAsync(questions);
+			var embeddings = await _openAIService.GenerateEmbeddingsAsync(serviceName, questions);
 			return questions.Zip(embeddings).Select(data => (data.First, data.Second.ToString())).ToList();
 		}
 	}

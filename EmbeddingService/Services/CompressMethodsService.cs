@@ -3,6 +3,7 @@ using BOEmbeddingService.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Newtonsoft.Json;
 using OpenAI.Chat;
 using System.IO;
 using System.Text.Json;
@@ -252,19 +253,27 @@ namespace BOEmbeddingService.Services
 				""";
 				string userPrompt = string.Join("\r\n\r\n", methods.Select(b => $"### {b.Key} ###\r\n{b.Value}"));
 
-				var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
+                ChatCompletionOptions chatCompletionOptions = new ChatCompletionOptions
+                {
+                    Temperature = 0.0f,
+                    //MaxTokens = 16000,
+                    MaxOutputTokenCount = 16_000,
+                    ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
+                };
+
+				DateTime StartTime = DateTime.Now;
+				DateTime endTime = DateTime.Now;
+
+                var completion = await _openAIService.CompleteChatAsync(new ChatMessage[]
 					{
 						ChatMessage.CreateSystemMessage(systemPrompt),
 						ChatMessage.CreateUserMessage(userPrompt),
-					}, new ChatCompletionOptions
-					{
-						Temperature = 0.0f,
-						//MaxTokens = 16000,
-						//MaxOutputTokenCount = 16_000,
-						ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
-					});
+					},
+					chatCompletionOptions
+					);
+                endTime = DateTime.Now;
 
-				var jsonData = JsonDocument.Parse(completion.Value.Content.Last().Text).RootElement.EnumerateObject().Select(token => new { Name = token.Name, Summary = token.Value.GetString() }).ToArray();
+                var jsonData = JsonDocument.Parse(completion.Value.Content.Last().Text).RootElement.EnumerateObject().Select(token => new { Name = token.Name, Summary = token.Value.GetString() }).ToArray();
 
 				string boFilePath = Path.Combine(filepath, serviceName);
 				if (!Path.Exists(boFilePath))
@@ -280,8 +289,12 @@ namespace BOEmbeddingService.Services
 					TotalTokenCount = completion.Value.Usage.TotalTokenCount,
 					FilePath = Path.Combine(boFilePath, filename),
 					Prompts = new Prompts { SystemPrompt = systemPrompt, UserPrompt = userPrompt },
-					Response = string.Join("\r\n", completion.Value.Content.Select(c => $"### {c.Text} ###"))
-				};
+					StartTime = StartTime,
+					EndTime = endTime,
+					TimeTaken = (endTime - StartTime).TotalSeconds,
+					chatCompletionOptions = chatCompletionOptions,
+					Response = JsonConvert.SerializeObject(completion.Value)
+                };
 				await _commonService.WriteToFileAndDB(writeToFileModel);
 
 				return jsonData.GroupBy(x => x.Name).ToDictionary(x => x.Key, y => y.Last().Summary);
