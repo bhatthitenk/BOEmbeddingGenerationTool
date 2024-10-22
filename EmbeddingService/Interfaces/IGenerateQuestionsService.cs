@@ -1,17 +1,9 @@
-﻿using BOEmbeddingService.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace BOEmbeddingService.Interfaces;
 
-namespace BOEmbeddingService.Interfaces
+public interface IGenerateQuestionsService
 {
-	public interface IGenerateQuestionsService
-	{
-		/// <summary>
-		/// Generate questions for RAG
-		/// </summary>
-		Task  GenerateQuestions();
-	}
+    /// <summary>
+    /// Generate questions for RAG
+    /// </summary>
+    Task GenerateQuestions();
 }

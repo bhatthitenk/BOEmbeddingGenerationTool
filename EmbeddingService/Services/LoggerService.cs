@@ -1,23 +1,17 @@
-﻿using Serilog.Core;
+﻿using BOEmbeddingService.Interfaces;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using BOEmbeddingService.Interfaces;
+using Serilog.Core;
 
-namespace BOEmbeddingService.Services
+namespace BOEmbeddingService.Services;
+
+public class LoggerService : ILoggerService
 {
-    public class LoggerService : ILoggerService
+    public Logger Logger { get; set; }
+    public void GetInstance()
     {
-        public Logger _logger {  get; set; }
-        public void GetInstance()
-        {
-            _logger = new LoggerConfiguration()
-                            .WriteTo.Console()
-                            .WriteTo.File("Logs/embeddingLog.txt", rollingInterval: RollingInterval.Day)
-                            .CreateLogger();
-        }
+        Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File("Logs/embeddingLog.txt", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
     }
 }
