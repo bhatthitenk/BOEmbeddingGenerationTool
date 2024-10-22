@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using BOEmbeddingService;
 using BOEmbeddingService.Interfaces;
 using BOEmbeddingService.Services;
-using BOEmbeddingService;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appSettings.json", false, false).Build();
 
@@ -15,21 +15,20 @@ loggerService.GetInstance();
 
 var serviceprovider = new ServiceCollection()
     // Add Service
-    .AddScoped<IEmbeddingService, EmbeddingService>()
+    .AddScoped<IGenerateEmbeddingService, GenerateEmbeddingService>()
     .AddScoped<ICommonService, CommonService>()
     .AddScoped<ICompressMethodsService, CompressMethodsService>()
     .AddScoped<IGenerateInterfaceSummaryService, GenerateInterfaceSummaryService>()
-	.AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
+    .AddScoped<IGenerateQuestionsService, GenerateQuestionsService>()
     .AddScoped<IGenerateServiceDescription, GenerateServiceDescriptionService>()
-    .AddSingleton<IAppSettings>(appSettings)
+    .AddSingleton<AppSettings>(appSettings)
     .AddSingleton<ILoggerService>(loggerService)
-    .AddSingleton<IOpenAIService, OpenAIService>()
+    .AddSingleton<IAzureOpenAIService, AzureOpenAIService>()
     .AddSingleton<IMongoDbService, MongoDbService>()
     .BuildServiceProvider();
 
-var embeddingService = serviceprovider.GetRequiredService<IEmbeddingService>();
+var embeddingService = serviceprovider.GetRequiredService<IGenerateEmbeddingService>();
 
-await embeddingService.EmbeddedBOObjects();
+await embeddingService.ProcessAndGenerateEmbeddings();
 
 // See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
