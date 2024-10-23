@@ -4,7 +4,7 @@ using BOEmbeddingService.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appSettings.json", false, false).Build();
+IConfiguration configuration = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
 
 var appSettings = new AppSettings();
 configuration.Bind(appSettings);
